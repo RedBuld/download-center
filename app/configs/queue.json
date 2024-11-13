@@ -1,0 +1,420 @@
+{
+    "formats_params": {
+        "pdf": ["auth"],
+        "mp3": ["auth"],
+        "fb2": ["images","force_images","auth","paging"],
+        "epub": ["images","force_images","auth","paging"],
+        "cbz": ["images","force_images","auth","paging"]
+    },
+    "groups": {
+        "pdf": {
+            "per_user": 1,
+            "simultaneously": 1,
+            "formats": ["pdf"],
+            "delay_per_user": 300
+        },
+        "audiobooks": {
+            "per_user": 1,
+            "simultaneously": 1,
+            "formats": ["mp3"],
+            "delay_per_user": 300
+        },
+        "books": {
+            "per_user": 5,
+            "simultaneously": 30,
+            "formats": ["fb2","epub"]
+        },
+        "manga": {
+            "per_user": 1,
+            "simultaneously": 1,
+            "formats": ["cbz"]
+        },
+        "ranobe": {
+            "per_user": 1,
+            "simultaneously": 2,
+            "formats": ["fb2","epub"]
+        },
+        "jaomix": {
+            "per_user": 1,
+            "simultaneously": 1,
+            "formats": ["fb2","epub"]
+        }
+    },
+    "sites": {
+		"author.today": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "simultaneously": 5,
+            "allowed_groups": ["books"]
+        },
+		"bigliba.com": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"bookhamster.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"bookinbook.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"bookinist.pw": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"booknet.com": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"],
+            "proxy": "http://89.23.110.141:3128/"
+        },
+		"booknet.ua": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"],
+            "proxy": "http://89.23.110.141:3128/"
+        },
+		"books.yandex.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books","audiobooks"]
+        },
+        "bookriver.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"bookstab.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"bookstime.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"bookuruk.com": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"],
+            "proxy": "http://89.23.110.141:3128/"
+        },
+		"desu.me": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"dreame.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"fanficus.com": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"fb2.top": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"ficbook.net": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"],
+            "proxy": "http://89.23.110.141:3128/"
+        },
+		"fictionbook.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"freedlit.space": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"hogwartsnet.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"i-gram.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"ladylib.top": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"libbox.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"libking.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"libst.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"litgorod.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"litlife.club": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"litmarket.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"litmir.me": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"litnet.com": {
+            "active": true,
+            "parameters": ["paging","auth"],
+            "allowed_groups": ["books"],
+            "proxy": "http://89.23.110.141:3128/"
+        },
+		"litres.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books","audiobooks","pdf"],
+            "delay": 30
+        },
+		"litsovet.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"mir-knig.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"mybook.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "formats": ["fb2","epub","mp3"],
+            "allowed_groups": ["books"]
+        },
+		"neobook.org": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"online-knigi.com.ua": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"prodaman.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"readli.net": {
+            "active": true,
+            "parameters": ["images"],
+            "allowed_groups": ["books"],
+            "per_user": 1,
+            "simultaneously": 1,
+            "delay": 60,
+            "delay_per_user": 300
+        },
+		"romfant.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"samlib.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+		"tl.rulate.ru": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"],
+            "per_user": 1,
+            "simultaneously": 1,
+            "delay": 60,
+            "delay_per_user": 120
+        },
+		"topliba.com": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["books"]
+        },
+		"twilightrussia.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["books"]
+        },
+        "eznovels.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "hotnovelpub.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "hub-book.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "lanovels.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "lightnoveldaily.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "noveltranslate.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "novelxo.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "ranobe-novels.ru": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "ranobe.ovh": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "ranobehub.org": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "ranobelib.me": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["ranobe"],
+            "proxy": "http://89.23.110.141:3128/",
+            "delay_per_user": 120
+        },
+        "ranobes.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "renovels.org": {
+            "active": true,
+            "parameters": ["paging","images","auth"],
+            "allowed_groups": ["ranobe"]
+        },
+        "royalroad.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "wattpad.com": {
+            "active": true,
+            "parameters": ["images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "younettranslate.com": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"],
+            "proxy": "http://89.23.110.141:3128/"
+        },
+        "xn--80ac9aeh6f.xn--p1ai": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "ранобэ.рф": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe"]
+        },
+        "acomics.ru": {
+            "active": true,
+            "parameters": ["paging","force_images"],
+            "allowed_groups": ["manga"]
+        },
+        "hentailib.me": {
+            "active": true,
+            "parameters": ["paging","force_images","auth"],
+            "allowed_groups": ["manga"],
+            "proxy": "http://89.23.110.141:3128/"
+        },
+        "manga.ovh": {
+            "active": true,
+            "parameters": ["paging","force_images","auth"],
+            "allowed_groups": ["manga"]
+        },
+		"mangalib.me": {
+            "active": true,
+            "parameters": ["paging","force_images","auth"],
+            "allowed_groups": ["manga"],
+            "delay_per_user": 120
+        },
+        "test-front.mangalib.me": {
+            "active": true,
+            "parameters": ["paging","force_images","auth"],
+            "allowed_groups": ["manga"],
+            "proxy": "http://89.23.110.141:3128/",
+            "delay_per_user": 120
+        },
+		"mangalib.org": {
+            "active": true,
+            "parameters": ["paging","force_images","auth"],
+            "allowed_groups": ["manga"],
+            "proxy": "http://89.23.110.141:3128/",
+            "delay_per_user": 120
+        },
+		"mangamammy.ru": {
+            "active": true,
+            "parameters": ["paging","force_images"],
+            "allowed_groups": ["manga"]
+        },
+        "readmanga.live": {
+            "active": true,
+            "parameters": ["paging","force_images"],
+            "allowed_groups": ["manga"]
+        },
+		"remanga.org": {
+            "active": true,
+            "parameters": ["paging","force_images","auth"],
+            "allowed_groups": ["manga"]
+        }
+	}
+}

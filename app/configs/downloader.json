@@ -1,0 +1,15 @@
+{
+    "exec_folder": "/srv/download-center/app/exec",
+    "save_folder": "/mnt/bot_temp/v3results",
+    "temp_folder": "/mnt/bot_temp/v3temp",
+    "compression": {
+        "zip": "zip",
+        "winrar": "rar"
+    },
+    "downloaders": {
+        "elib2ebook": {
+            "folder": "Elib2Ebook",
+            "exec": "Elib2EbookCli"
+        }
+    }
+}
