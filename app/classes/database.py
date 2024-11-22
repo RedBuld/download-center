@@ -21,14 +21,12 @@ logger = logging.getLogger(__name__)
 class DataBase(object):
     _engine: Engine
     _session: sessionmaker[Session]
-    session: Session
 
     __server: str = ""
 
     def __init__(self):
         self._engine = None
         self._session = None
-        self.session = None
         return
     
     async def Start(self) -> None:
@@ -36,7 +34,7 @@ class DataBase(object):
             return
 
         while True:
-            logger.info('DB: started')
+            logger.info('DB: starting')
             try:
                 if not self._engine:
                     self._engine = create_engine(
@@ -44,13 +42,6 @@ class DataBase(object):
                         pool_size=5, max_overflow=5, pool_recycle=60, pool_pre_ping=True
                     )
                     self._session = sessionmaker(self._engine, expire_on_commit=False)
-                    self.session = self._session()
-                    # self._engine = create_async_engine(
-                    #     self.__server,
-                    #     pool_size=5, max_overflow=5, pool_recycle=60, pool_pre_ping=True
-                    # )
-                    # self._async_session = async_sessionmaker(self._engine, expire_on_commit=False)
-
                 await self._create_db()
                 logger.info('DB: started')
                 return
@@ -60,10 +51,6 @@ class DataBase(object):
                 continue
     
     async def Stop(self) -> None:
-        if self.session:
-            self.session.close()
-            self.session = None
-
         if self._engine:
             logger.info('DB: finished')
             self._engine.dispose()
@@ -104,27 +91,30 @@ class DataBase(object):
     async def SaveRequest(self, request: dict) -> models.DownloadRequest:
         logger.info('saveRequest')
         logger.info(request)
-        if not self.session:
-            return
+        
+        session = self._session()
         try:
             result = models.DownloadRequest(**request)
-            self.session.add(result)
-            self.session.commit()
+            session.add(result)
+            session.commit()
+            session.close()
             return result
         except OperationalError as e:
             await asyncio.sleep(1)
             return await self.SaveRequest(request)
         except Exception as e:
             raise e
+        finally:
+            session.close()
     
     async def GetRequest(self, task_id: int) -> models.DownloadRequest | None:
-        if not self.session:
-            return
+        session = self._session()
         try:
-            query = self.session.execute(
+            query = session.execute(
                 select(models.DownloadRequest).where(models.DownloadRequest.task_id==task_id)
             )
             result = query.scalar_one_or_none()
+            session.close()
             if not result:
                 return None
             return result
@@ -133,15 +123,17 @@ class DataBase(object):
             return await self.GetRequest(task_id)
         except Exception as e:
             raise e
+        finally:
+            session.close()
     
     async def GetAllRequests(self) -> list[models.DownloadRequest]:
-        if not self.session:
-            return
+        session = self._session()
         try:
-            query = self.session.execute(
+            query = session.execute(
                 select(models.DownloadRequest)
             )
             result = query.scalars().all()
+            session.close()
             return result
         except OperationalError as e:
             traceback.print_exception()
@@ -149,51 +141,56 @@ class DataBase(object):
             return await self.GetAllRequests()
         except Exception as e:
             raise e
+        finally:
+            session.close()
     
     async def DeleteRequest(self, task_id: int) -> None:
-        if not self.session:
-            return
+        session = self._session()
         try:
-            self.session.execute(
+            session.execute(
                 delete(models.DownloadRequest).where(models.DownloadRequest.task_id==task_id)
             )
-            self.session.commit()
+            session.commit()
+            session.close()
         except OperationalError as e:
             traceback.print_exception()
             await asyncio.sleep(1)
             return await self.DeleteRequest(task_id)
         except Exception as e:
             raise e
+        finally:
+            session.close()
 
     #
 
     async def SaveResult(self, _result: dict) -> models.DownloadResult:
-        if not self.session:
-            return
+        session = self._session()
         try:
-            query = self.session.execute(
+            query = session.execute(
                 select(models.DownloadResult).where(models.DownloadResult.task_id==_result['task_id'])
             )
             result = query.scalar_one_or_none()
             if not result:
                 result = models.DownloadResult(**_result)
-            self.session.add(result)
-            self.session.commit()
+            session.add(result)
+            session.commit()
             return result
         except OperationalError as e:
             await asyncio.sleep(1)
             return await self.SaveResult(_result)
         except Exception as e:
             raise e
+        finally:
+            session.close()
     
     async def GetResult(self, task_id: int) -> models.DownloadResult | None:
-        if not self.session:
-            return
+        session = self._session()
         try:
-            query = self.session.execute(
+            query = session.execute(
                 select(models.DownloadResult).where(models.DownloadResult.task_id==task_id)
             )
             result = query.scalar_one_or_none()
+            session.close()
             if not result:
                 return None
             return result
@@ -202,41 +199,45 @@ class DataBase(object):
             return await self.GetResult(task_id)
         except Exception as e:
             raise e
+        finally:
+            session.close()
     
     async def GetAllResults(self) -> list[models.DownloadResult]:
-        if not self.session:
-            return
+        session = self._session()
         try:
-            query = self.session.execute(
+            query = session.execute(
                 select(models.DownloadResult)
             )
             result = query.scalars().all()
+            session.close()
             return result
         except OperationalError as e:
             await asyncio.sleep(1)
             return await self.GetAllResults()
         except Exception as e:
             raise e
+        finally:
+            session.close()
     
     async def DeleteResult(self, task_id: int) -> None:
-        if not self.session:
-            return
+        session = self._session()
         try:
-            self.session.execute(
+            session.execute(
                 delete(models.DownloadResult).where(models.DownloadResult.task_id==task_id)
             )
-            self.session.commit()
+            session.commit()
+            session.close()
         except OperationalError as e:
             await asyncio.sleep(1)
             return await self.DeleteResult(task_id)
         except Exception as e:
             raise e
+        finally:
+            session.close()
 
     #
 
     async def UpdateSiteStat(self, result: dict) -> None:
-        if not self.session:
-            return
 
         if result['status'] == variables.DownloaderStep.CANCELLED:
             return
@@ -244,6 +245,7 @@ class DataBase(object):
         success = 1 if result['status'] == variables.DownloaderStep.DONE else 0
         failure = 1 if result['status'] == variables.DownloaderStep.ERROR else 0
 
+        session = self._session()
         try:
             ss = {
                 'site': result['site'],
@@ -253,7 +255,7 @@ class DataBase(object):
                 'orig_size': result['orig_size'],
                 'oper_size': result['oper_size'],
             }
-            self.session.execute(
+            session.execute(
                 insert(models.SiteStat)\
                 .values(**ss)\
                 .on_duplicate_key_update(
@@ -263,16 +265,21 @@ class DataBase(object):
                     oper_size=models.SiteStat.oper_size + result['oper_size'],
                 )
             )
-            self.session.commit()
+            session.commit()
+            session.close()
         except OperationalError as e:
             await asyncio.sleep(1)
             return await self.UpdateSiteStat(result)
         except Exception as e:
             raise e
+        finally:
+            session.close()
     
     #
 
     async def GetStats(self):
+
+        session = self._session()
 
         current_date = datetime.now()
 
@@ -293,7 +300,7 @@ class DataBase(object):
 
         #strftime("%Y-%m-%d")
 
-        current_day_stats_query = self.session.execute(
+        current_day_stats_query = session.execute(
             select(
                 models.SiteStat.site,
                 func.sum(models.SiteStat.success),
@@ -309,7 +316,7 @@ class DataBase(object):
         )
         current_day_stats = current_day_stats_query.all()
 
-        previous_day_stats_query = self.session.execute(
+        previous_day_stats_query = session.execute(
             select(
                 models.SiteStat.site,
                 func.sum(models.SiteStat.success),
@@ -327,7 +334,7 @@ class DataBase(object):
 
         ###
 
-        current_month_stats_query = self.session.execute(
+        current_month_stats_query = session.execute(
             select(
                 models.SiteStat.site,
                 func.sum(models.SiteStat.success),
@@ -343,7 +350,7 @@ class DataBase(object):
         )
         current_month_stats = current_month_stats_query.all()
 
-        # previous_month_stats_query = self.session.execute(
+        # previous_month_stats_query = session.execute(
         #     select(
         #         models.SiteStat.site,
         #         func.sum(models.SiteStat.success),
@@ -361,7 +368,7 @@ class DataBase(object):
 
         ###
 
-        current_year_stats_query = self.session.execute(
+        current_year_stats_query = session.execute(
             select(
                 models.SiteStat.site,
                 func.sum(models.SiteStat.success),
@@ -377,7 +384,7 @@ class DataBase(object):
         )
         current_year_stats = current_year_stats_query.all()
 
-        previous_year_stats_query = self.session.execute(
+        previous_year_stats_query = session.execute(
             select(
                 models.SiteStat.site,
                 func.sum(models.SiteStat.success),
@@ -395,6 +402,7 @@ class DataBase(object):
 
         fields = ['site','success','failure','orig_size','oper_size']
 
+        session.close()
         return {
             'current_day': {
                 'elements': [ dict( zip(fields, x) ) for x in current_day_stats ],

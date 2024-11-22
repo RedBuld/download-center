@@ -215,6 +215,18 @@ class QueueStats():
         self.sites =  {}
         self.users =  {}
     
+    async def Export( self ) -> Dict[ str, Dict [ str, int ] ]:
+        result = {
+            'sites': {},
+            'groups': {},
+        }
+        for site_name in self.sites.keys():
+            result['sites'][site_name] = self.sites[ site_name ].active
+        for group_name in self.groups.keys():
+            result['groups'][group_name] = self.groups[ group_name ].active
+        return result
+
+
     async def Flush( self ) -> None:
         print('Doing flush')
         for user_id in list(self.users.keys()):
@@ -330,7 +342,10 @@ class QueueStats():
     async def UserAddRun( self, user_id: int, site_name: str, group_name: str ) -> bool:
         if not await self.UserExists( user_id ):
             await self.UserInit( user_id )
-        return await self.users[ user_id ].AddRun( site_name, group_name )
+        # await self.GroupAddRun( group_name )
+        # await self.SiteAddRun( group_name )
+        await self.users[ user_id ].AddRun( site_name, group_name )
+        return
 
     #
 
@@ -349,4 +364,6 @@ class QueueStats():
     async def UserRemoveRun( self, user_id: int, site_name: str, group_name: str ) -> bool:
         if not await self.UserExists( user_id ):
             await self.UserInit( user_id )
+        # await self.GroupRemoveRun( group_name )
+        # await self.SiteRemoveRun( group_name )
         return await self.users[ user_id ].RemoveRun( site_name, group_name )

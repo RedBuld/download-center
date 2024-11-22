@@ -98,6 +98,7 @@ class DownloadsQueue():
     
     async def ExportQueue(self) -> Dict[str,Any]:
         result = {
+            "stats": await self.stats.Export(),
             "running": await self.running.Export(),
             "waiting": await self.waiting.Export(),
         }
@@ -108,15 +109,15 @@ class DownloadsQueue():
 
     async def CheckSite(self, site_name: str) -> tuple[bool, list[str], Dict[str,list[str]]]:
         if site_name not in self.active:
-            return False, [], []
+            return False, [], {}
 
         groups = await self.site_to_groups.GetSiteGroups( site_name )
         if len(groups) == 0:
-            return False, [], []
+            return False, [], {}
 
         site_config = QC.sites[ site_name ] if site_name in QC.sites else None
         if site_config is None:
-            return True, [], []
+            return True, [], {}
 
         _formats = site_config.formats
         if not _formats:
@@ -124,7 +125,7 @@ class DownloadsQueue():
             for group_name in groups:
                 group_config = QC.groups[ group_name ] if group_name in QC.groups else None
                 if not group_config:
-                    return True, [], []
+                    return True, [], {}
                 for format in group_config.formats:
                     if format not in _formats:
                         _formats.append(format)
@@ -183,7 +184,11 @@ class DownloadsQueue():
 
         try:
             await self.waiting.RemoveTask( cancel_request.task_id )
-            await self.running.RemoveTask( cancel_request.task_id )
+            task = await self.running.RemoveTask( cancel_request.task_id )
+            if task != False:
+                await self.stats.SiteRemoveRun( task.site )
+                await self.stats.GroupRemoveRun( task.group )
+                await self.stats.UserRemoveRun( task.user_id, task.site, task.group )
             await DB.DeleteRequest( cancel_request.task_id )
             return True
         except:
@@ -210,7 +215,7 @@ class DownloadsQueue():
         results = await DB.GetAllResults()
         for result in results:
             logger.info( 'DQ: __restore_tasks result: ' + str( result ) )
-            asyncio.create_task( self.__task_done( schemas.DownloadResult.model_validate(result) ) )
+            asyncio.create_task( self.__send_files( schemas.DownloadResult.model_validate(result) ) )
             await asyncio.sleep( 0 )
 
         logger.info( 'DQ: __restore_tasks done' )
@@ -418,11 +423,15 @@ class DownloadsQueue():
         await DB.SaveResult( result.model_dump() )
         await DB.DeleteRequest( task_id )
 
+        await self.__send_files( result )
+
+    async def __send_files(self, result: schemas.DownloadResult) -> None:
+
         sended = await IC.Send(result)
 
         if sended:
-            await DB.DeleteResult( task_id )
-            logger.info( 'deleted result, task #' + str( task_id ) )
+            await DB.DeleteResult( result.task_id )
+            logger.info( 'deleted result, task #' + str( result.task_id ) )
 
         try:
             await DB.UpdateSiteStat( result.model_dump() )

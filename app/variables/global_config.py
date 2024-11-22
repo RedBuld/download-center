@@ -8,23 +8,19 @@ from typing import Dict, Any
 class GlobalConfig():
     bot_host:    str
     queue_host:  str
+    inited:      bool = False
 
-    def __repr__(self):
-        return str({
-            'bot_host': self.bot_host,
-            'queue_host': self.queue_host,
-        })
+    async def updateConfig( self ):
+        config_path = []
 
-    def __init__( self, **kwargs ) -> None:
-        if 'bot_host' in kwargs:
-            self.bot_host = kwargs['bot_host']
-        if 'queue_host' in kwargs:
-            self.queue_host = kwargs['queue_host']
+        cwd = os.getcwd()
 
-    async def updateConfig(
-        self
-    ):
-        config_file = os.path.join( os.getcwd(), 'app', 'configs', 'global.json' )
+        config_path.append(cwd)
+
+        if not cwd.endswith('app/') and not cwd.endswith('app'):
+            config_path.append('app')
+
+        config_file = os.path.join( *config_path, 'configs', 'global.json' )
 
         config: Dict[str,Any] = {}
 
@@ -35,7 +31,9 @@ class GlobalConfig():
             with open( config_file, 'r', encoding='utf-8' ) as _config_file:
                 _config = _config_file.read()
                 config = ujson.loads( _config )
-        except:
+        except Exception as e:
+            if not self.inited:
+                raise e
             traceback.print_exc()
 
         self.bot_host = config['bot_host'] if 'bot_host' in config else ''

@@ -14,10 +14,10 @@ class QueueConfig():
     groups:             Dict[ str, QueueConfigGroup ]
     sites:              Dict[ str, QueueConfigSite ]
     user_stats_timeout: int = 0
-    Consumer:           Optional[ Callable[ [ models.DownloadResult ], None ] ] = None
+    inited:             bool = False
 
     def __repr__(self):
-        return str({
+        return 'QC:'+str({
             'formats_params': self.formats_params,
             'groups': self.groups,
             'sites': self.sites,
@@ -27,22 +27,29 @@ class QueueConfig():
     async def updateConfig(
         self
     ):
-        queue_config_file = os.path.join( os.getcwd(), 'app', 'configs', 'queue.json' )
+        config_path = []
+
+        cwd = os.getcwd()
+
+        config_path.append(cwd)
+
+        if not cwd.endswith('app/') and not cwd.endswith('app'):
+            config_path.append('app')
+
+        config_file = os.path.join( *config_path,  'configs', 'queue.json' )
 
         config: Dict[str,Any] = {}
 
         try:
-            if not os.path.exists(queue_config_file):
-                raise FileNotFoundError(queue_config_file)
+            if not os.path.exists(config_file):
+                raise FileNotFoundError(config_file)
 
-            with open( queue_config_file, 'r', encoding='utf-8' ) as _config_file:
+            with open( config_file, 'r', encoding='utf-8' ) as _config_file:
                 _config = _config_file.read()
                 config = ujson.loads( _config )
-
-                # print(_config)
-                # config = from_dict(data_class=GlobalConfig, data=_config, config=Config(check_types=False))
-                # print(config)
-        except:
+        except Exception as e:
+            if not self.inited:
+                raise e
             traceback.print_exc()
 
         _formats_params = config['formats_params'] if 'formats_params' in config else {}
@@ -69,6 +76,8 @@ class QueueConfig():
         self.groups = groups
         self.sites = sites
         self.user_stats_timeout = int(config['user_stats_timeout']) if 'user_stats_timeout' in config else 0
+
+        print(self)
 
 
 @dataclass
@@ -102,7 +111,7 @@ class QueueConfigSite():
     allowed_groups: List[ str ] = field(default_factory=list)
     delay:          int = 0
     delay_per_user: int = 0
-    pause_by_user:  int = 1
+    page_delay:     int = 0
 
     def __repr__(self):
         return str({
@@ -116,5 +125,5 @@ class QueueConfigSite():
             'allowed_groups': self.allowed_groups,
             'delay': self.delay,
             'per_user': self.per_user,
-            'pause_by_user': self.pause_by_user,
+            'page_delay': self.page_delay,
         })

@@ -21,8 +21,7 @@ from app.objects import DB, RD
 from app.configs import GC, DC, QC
 
 logging.basicConfig(
-    filename='/srv/download-center/log.log',
-    # filename="C:\\Users\\RedBuld\\Pictures\\log.txt",
+    # filename='/srv/download-center/log.log',
     format='\x1b[32m%(levelname)s\x1b[0m:     %(name)s[%(process)d] %(asctime)s - %(message)s',
     level=logging.INFO
 )
@@ -111,18 +110,13 @@ async def start():
 @app.get('/export/queue')
 async def export_queue():
     data = await DQ.ExportQueue()
-    logger.info(data)
-    resp = schemas.ExportQueueResponse(
-        waiting = data['waiting'],
-        running = data['running'],
-    )
+    resp = schemas.ExportQueueResponse(**data)
     return resp
 
 @app.get('/export/stats')
 async def export_stats():
     data = await DB.GetStats()
     resp = schemas.ExportStatsResponse(**data)
-    logger.info(resp)
     return resp
 
 #

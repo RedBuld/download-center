@@ -104,6 +104,7 @@ class ExportStatsResponse(BaseModel):
         from_attributes = True
 
 class ExportQueueResponse(BaseModel):
+    stats: Dict[ str, Dict[ str, int ] ] = {}
     waiting: List[ ExportQueueWaitingGroup ] = []
     running: List[ ExportQueueRunningGroup ] = []
 

@@ -129,7 +129,8 @@
             "active": true,
             "parameters": ["paging","images"],
             "allowed_groups": ["books"],
-            "proxy": "http://89.23.110.141:3128/"
+            "proxy": "http://89.23.110.141:3128/",
+            "page_delay": 2
         },
 		"fictionbook.ru": {
             "active": true,
@@ -184,7 +185,8 @@
 		"litmarket.ru": {
             "active": true,
             "parameters": ["paging","images","auth"],
-            "allowed_groups": ["books"]
+            "allowed_groups": ["books"],
+            "page_delay": 2
         },
 		"litmir.me": {
             "active": true,
@@ -195,13 +197,15 @@
             "active": true,
             "parameters": ["paging","auth"],
             "allowed_groups": ["books"],
-            "proxy": "http://89.23.110.141:3128/"
+            "proxy": "http://89.23.110.141:3128/",
+            "page_delay": 2
         },
 		"litres.ru": {
             "active": true,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books","audiobooks","pdf"],
-            "delay": 30
+            "delay": 30,
+            "page_delay": 2
         },
 		"litsovet.ru": {
             "active": true,
@@ -241,7 +245,8 @@
             "per_user": 1,
             "simultaneously": 1,
             "delay": 60,
-            "delay_per_user": 300
+            "delay_per_user": 300,
+            "page_delay": 3
         },
 		"romfant.ru": {
             "active": true,
@@ -260,7 +265,8 @@
             "per_user": 1,
             "simultaneously": 1,
             "delay": 60,
-            "delay_per_user": 120
+            "delay_per_user": 120,
+            "page_delay": 3
         },
 		"topliba.com": {
             "active": true,
@@ -327,7 +333,9 @@
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["ranobe"],
             "proxy": "http://89.23.110.141:3128/",
-            "delay_per_user": 120
+            "simultaneously": 1,
+            "delay_per_user": 120,
+            "page_delay": 3
         },
         "ranobes.com": {
             "active": true,
@@ -385,7 +393,8 @@
             "active": true,
             "parameters": ["paging","force_images","auth"],
             "allowed_groups": ["manga"],
-            "delay_per_user": 120
+            "delay_per_user": 120,
+            "page_delay": 3
         },
         "test-front.mangalib.me": {
             "active": true,

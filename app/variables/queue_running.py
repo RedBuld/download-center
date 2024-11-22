@@ -18,7 +18,7 @@ class QueueRunning():
     
     #
 
-    async def Export( self ) -> List[Dict]:
+    async def Export( self ) -> List[ Dict ]:
         _temp = {}
 
         for _, task in self.tasks.items():
@@ -54,17 +54,18 @@ class QueueRunning():
             self.tasks[ task_id ] = task
         return self.tasks[ task_id ] if task_id in self.tasks else None
 
-    async def RemoveTask( self, task_id: int ) -> bool:
+    async def RemoveTask( self, task_id: int ) -> QueueRunningTask | bool:
         ok: bool = task_id in self.tasks
         if ok:
             task: QueueRunningTask = self.tasks[ task_id ]
-            if task.proc:
-                task.proc.terminate()
-                while task.proc.is_alive():
-                    await asyncio.sleep(0.1)
-                task.proc.close()
-            del self.tasks[ task_id ]
-            return True
+            if task:
+                if task.proc:
+                    task.proc.terminate()
+                    while task.proc.is_alive():
+                        await asyncio.sleep(0.1)
+                    task.proc.close()
+                del self.tasks[ task_id ]
+                return task
         return False
 
     async def UpdateStatus( self, task_id: int, status: str ) -> bool:

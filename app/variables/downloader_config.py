@@ -11,9 +11,10 @@ class DownloaderConfig():
     temp_folder:   str | os.PathLike
     compression:   Dict[ str, str | os.PathLike ]
     downloaders:   Dict[ str, DownloaderConfigExec ]
+    inited:        bool = False
 
     def __repr__(self):
-        return str({
+        return 'DC:'+str({
             'save_folder': self.save_folder,
             'exec_folder': self.exec_folder,
             'temp_folder': self.temp_folder,
@@ -21,22 +22,19 @@ class DownloaderConfig():
             'downloaders': self.downloaders,
         })
 
-    def __init__( self, **kwargs ) -> None:
-        if 'save_folder' in kwargs:
-            self.save_folder = kwargs['save_folder']
-        if 'exec_folder' in kwargs:
-            self.exec_folder = kwargs['exec_folder']
-        if 'temp_folder' in kwargs:
-            self.temp_folder = kwargs['temp_folder']
-        if 'compression' in kwargs:
-            self.compression = kwargs['compression']
-        if 'downloaders' in kwargs:
-            self.downloaders = kwargs['downloaders']
-
     async def updateConfig(
         self
     ):
-        config_file = os.path.join( os.getcwd(), 'app', 'configs', 'downloader.json' )
+        config_path = []
+
+        cwd = os.getcwd()
+
+        config_path.append(cwd)
+
+        if not cwd.endswith('app/') and not cwd.endswith('app'):
+            config_path.append('app')
+
+        config_file = os.path.join( *config_path, 'configs', 'downloader.json' )
 
         config: Dict[str,Any] = {}
 
@@ -47,21 +45,39 @@ class DownloaderConfig():
             with open( config_file, 'r', encoding='utf-8' ) as _config_file:
                 _config = _config_file.read()
                 config = ujson.loads( _config )
-        except:
+        except Exception as e:
+            if not self.inited:
+                raise e
             traceback.print_exc()
 
-        self.save_folder = config['save_folder'] if 'save_folder' in config else ''
-        self.exec_folder = config['exec_folder'] if 'exec_folder' in config else ''
-        self.temp_folder = config['temp_folder'] if 'temp_folder' in config else ''
+        if 'save_folder' in config:
+            self.save_folder = config['save_folder']
+        else:
+            raise Exception('No save_folder in downloader.json config')
+        if 'exec_folder' in config:
+            self.exec_folder = config['exec_folder']
+        else:
+            raise Exception('No exec_folder in downloader.json config')
+        if 'temp_folder' in config:
+            self.temp_folder = config['temp_folder']
+        else:
+            raise Exception('No temp_folder in downloader.json config')
+        
+        if 'downloaders' in config:
+            _downloaders = config['downloaders'] if 'downloaders' in config else {}
+        else:
+            raise Exception('No downloaders in downloader.json config')
+        
         self.compression = config['compression'] if 'compression' in config else {}
-        _downloaders = config['downloaders'] if 'downloaders' in config else {}
+        
         downloaders = {}
-
         for name, data in _downloaders.items():
             downloader = DownloaderConfigExec(**data)
             downloaders[name] = downloader
 
         self.downloaders = downloaders
+
+        print(self)
 
 @dataclass
 class DownloaderConfigExec():
@@ -81,3 +97,4 @@ class DownloaderContext():
     temp_folder:   str | os.PathLike
     compression:   Dict[ str, str | os.PathLike ]
     downloader:    DownloaderConfigExec
+    page_delay:    int = 0
