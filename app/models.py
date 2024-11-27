@@ -40,6 +40,7 @@ class DownloadRequest(Base):
     password: Mapped[str] =   mapped_column('password', Text, default="")
     images: Mapped[bool] =    mapped_column('images', Boolean, default=True)
     cover: Mapped[bool] =     mapped_column('cover', Boolean, default=False)
+    hashtags: Mapped[str] =   mapped_column('hashtags', String(5), default="no")
     proxy: Mapped[str] =      mapped_column('proxy', Text, default="")
 
     def __repr__(self) -> str:
@@ -59,6 +60,7 @@ class DownloadRequest(Base):
             'password':   self.password,
             'images':     self.images,
             'cover':      self.cover,
+            'hashtags':   self.hashtags,
             'proxy':      self.proxy,
         })
 

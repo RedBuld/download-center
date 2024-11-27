@@ -77,53 +77,61 @@ class QueueConfig():
         self.sites = sites
         self.user_stats_timeout = int(config['user_stats_timeout']) if 'user_stats_timeout' in config else 0
 
-        print(self)
+        # print(self)
 
 
 @dataclass
 class QueueConfigGroup():
-    per_user:       int = 1
-    simultaneously: int = 1
-    delay:          int = 0
-    delay_per_user: int = 0
-    formats:        List[ str ] = field(default_factory=list)
-    downloader:     str = "elib2ebook"
+    per_user:         int = 1
+    simultaneously:   int = 1
+    delay:            int = 0
+    delay_per_user:   int = 0
+    waiting:          int = 0
+    waiting_per_user: int = 0
+    formats:          List[ str ] = field(default_factory=list)
+    downloader:       str = "elib2ebook"
 
     def __repr__(self):
         return str({
-            'per_user': self.per_user,
-            'simultaneously': self.simultaneously,
-            'delay': self.delay,
-            'delay_per_user': self.delay_per_user,
-            'formats': self.formats,
-            'downloader': self.downloader,
+            'per_user':         self.per_user,
+            'simultaneously':   self.simultaneously,
+            'delay':            self.delay,
+            'delay_per_user':   self.delay_per_user,
+            'waiting':          self.waiting,
+            'waiting_per_user': self.waiting_per_user,
+            'formats':          self.formats,
+            'downloader':       self.downloader,
         })
 
 @dataclass
 class QueueConfigSite():
-    parameters:     List[ str ] = field(default_factory=list)
-    formats:        List[ str ] = field(default_factory=list)
-    downloader:     str = "elib2ebook"
-    active:         bool = True
-    proxy:          str = ""
-    simultaneously: int = 1
-    per_user:       int = 1
-    allowed_groups: List[ str ] = field(default_factory=list)
-    delay:          int = 0
-    delay_per_user: int = 0
-    page_delay:     int = 0
+    parameters:       List[ str ] = field(default_factory=list)
+    formats:          List[ str ] = field(default_factory=list)
+    downloader:       str = "elib2ebook"
+    active:           bool = True
+    proxy:            str = ""
+    simultaneously:   int = 1
+    per_user:         int = 1
+    allowed_groups:   List[ str ] = field(default_factory=list)
+    delay:            int = 0
+    delay_per_user:   int = 0
+    waiting:          int = 0
+    waiting_per_user: int = 0
+    page_delay:       int = 0
 
     def __repr__(self):
         return str({
-            'parameters': self.parameters,
-            'formats': self.formats,
-            'downloader': self.downloader,
-            'active': self.active,
-            'proxy': self.proxy,
-            'simultaneously': self.simultaneously,
-            'per_user': self.per_user,
-            'allowed_groups': self.allowed_groups,
-            'delay': self.delay,
-            'per_user': self.per_user,
-            'page_delay': self.page_delay,
+            'parameters':       self.parameters,
+            'formats':          self.formats,
+            'downloader':       self.downloader,
+            'active':           self.active,
+            'proxy':            self.proxy,
+            'simultaneously':   self.simultaneously,
+            'per_user':         self.per_user,
+            'allowed_groups':   self.allowed_groups,
+            'delay':            self.delay,
+            'delay_per_user':   self.delay_per_user,
+            'waiting':          self.waiting,
+            'waiting_per_user': self.waiting_per_user,
+            'page_delay':       self.page_delay,
         })

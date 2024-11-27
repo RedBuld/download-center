@@ -1,12 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import os
-from dotenv import load_dotenv
-if os.name == 'nt':
-    load_dotenv(".env.development")
-else:
-    load_dotenv(".env")
-
 import traceback
 import asyncio
 import logging
@@ -16,9 +7,9 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
-from app import schemas
-from app.objects import DB, RD
+from app import schemas, variables
 from app.configs import GC, DC, QC
+from app.objects import DB, RD
 
 logging.basicConfig(
     # filename='/srv/download-center/log.log',
@@ -158,6 +149,11 @@ async def download_new( request: schemas.DownloadRequest ):
         return JSONResponse(
             status_code = 200 if resp.status else 500,
             content =     resp.message
+        )
+    except variables.WaitingLimitException as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     str(e)
         )
     except Exception as e:
         traceback.print_exc()

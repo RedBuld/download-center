@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List, Dict, Any
-from app import variables
 from app import models
+from app import schemas
 
 class QueueWaiting():
     groups: Dict[ str, QueueWaitingGroup ] = {}
@@ -28,6 +28,18 @@ class QueueWaiting():
 
     async def GetActiveGroups( self ) -> List[str]:
         return list( self.groups.keys() )
+    
+    #
+
+    async def CheckDuplicate( self, group_name: str, request: schemas.DownloadRequest ) -> bool:
+        for _, task in self.groups[ group_name ].tasks.items():
+            if task.request.user_id == request.user_id and task.request.url == request.url \
+                and \
+               task.request.start == request.start and task.request.end == request.end \
+                and \
+               task.request.images == request.images:
+                return True
+        return False
 
     #
 
@@ -92,10 +104,13 @@ class QueueWaiting():
     async def RemoveTask(
             self,
             task_id: int
-        ) -> bool:
+        ) -> QueueWaitingTask | bool:
         for group_name in self.groups.keys():
-            await self.groups[ group_name ].RemoveTask(task_id)
-        return True
+            if task_id in self.groups[ group_name ].tasks:
+                task: QueueWaitingTask = self.groups[ group_name ].tasks[ task_id ]
+                await self.groups[ group_name ].RemoveTask(task_id)
+                return task
+        return False
 
 class QueueWaitingGroup():
     tasks: Dict[ int, QueueWaitingTask ] = {}
@@ -127,19 +142,25 @@ class QueueWaitingGroup():
 
 class QueueWaitingTask():
     task_id: int = 0
+    user_id: int = 0
     site:    str = ""
-    url:    str = ""
+    group:   str = ""
+    site:    str = ""
+    url:     str = ""
     request: models.DownloadRequest
 
     def __init__(
             self,
             task_id: int,
+            group: str,
             request: models.DownloadRequest,
         ) -> None:
         self.task_id = task_id
-        self.request = request
+        self.group = group
+        self.user_id = request.user_id
         self.site = request.site
         self.url = request.url
+        self.request = request
 
     def __repr__( self ) -> str:
         return '<QueueWaitingTask '+str( {

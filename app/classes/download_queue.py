@@ -145,7 +145,7 @@ class DownloadsQueue():
     
     #
 
-    async def AddTask(self, request: schemas.DownloadRequest) -> schemas.DownloadResponse:
+    async def AddTask(self, request: schemas.DownloadRequest, raise_on_limit: bool = True) -> schemas.DownloadResponse:
         logger.info( 'DQ: received request:' + str( request ) )
 
         site_name = request.site
@@ -157,6 +157,27 @@ class DownloadsQueue():
 
             if site_config and site_config.proxy and not request.proxy:
                 request.proxy = site_config.proxy
+            
+            can_be_added = await self.stats.GroupCanAdd( group_name )
+            if not can_be_added and raise_on_limit:
+                raise variables.WaitingLimitException('Максимум ожидающих загрузок для группы')
+
+            can_be_added = await self.stats.SiteCanAdd( site_name )
+            if not can_be_added and raise_on_limit:
+                raise variables.WaitingLimitException('Максимум ожидающих загрузок для сайта')
+
+            can_be_added = await self.stats.UserCanAdd( request.user_id, site_name, group_name )
+            if not can_be_added and raise_on_limit:
+                raise variables.WaitingLimitException('Максимум ожидающих загрузок для сайта/группы')
+            
+            waiting_duplicate = await self.waiting.CheckDuplicate( group_name, request )
+            running_duplicate = await self.running.CheckDuplicate( request )
+
+            if waiting_duplicate:
+                raise variables.WaitingLimitException('Такая загрузка уже добавлена в очередь')
+
+            if running_duplicate:
+                raise variables.WaitingLimitException('Такая загрузка уже загружается')
 
             if request.task_id is None: # Maybe restoring task
                 try:
@@ -169,9 +190,11 @@ class DownloadsQueue():
 
             waiting_task = QueueWaitingTask(
                 task_id = request.task_id,
+                group =   group_name,
                 request = request
             )
 
+            await self.stats.AddWaiting( request.user_id, site_name, group_name )
             await self.waiting.GroupAddTask( group_name, waiting_task )
         
         return schemas.DownloadResponse(
@@ -183,12 +206,14 @@ class DownloadsQueue():
         logger.info( 'DQ: cancel task:' + str( cancel_request.model_dump() ) )
 
         try:
-            await self.waiting.RemoveTask( cancel_request.task_id )
-            task = await self.running.RemoveTask( cancel_request.task_id )
-            if task != False:
-                await self.stats.SiteRemoveRun( task.site )
-                await self.stats.GroupRemoveRun( task.group )
-                await self.stats.UserRemoveRun( task.user_id, task.site, task.group )
+            waiting_task = await self.waiting.RemoveTask( cancel_request.task_id )
+            if waiting_task != False:
+                await self.stats.RemoveWaiting( waiting_task.user_id, waiting_task.site, waiting_task.group )
+
+            running_task = await self.running.RemoveTask( cancel_request.task_id )
+            if running_task != False:
+                await self.stats.RemoveRun( running_task.user_id, running_task.site, running_task.group )
+
             await DB.DeleteRequest( cancel_request.task_id )
             return True
         except:
@@ -209,7 +234,7 @@ class DownloadsQueue():
         requests = await DB.GetAllRequests()
         for request in requests:
             logger.info( 'DQ: __restore_tasks request: ' + str( request ) )
-            asyncio.create_task( self.AddTask( schemas.DownloadRequest.model_validate(request) ) )
+            asyncio.create_task( self.AddTask( schemas.DownloadRequest.model_validate(request), False ) )
             await asyncio.sleep( 0 )
 
         results = await DB.GetAllResults()
@@ -295,7 +320,7 @@ class DownloadsQueue():
 
                                 if not await self.stats.GroupCanStart( group_name ):
                                     # logger.info('DQ: group can\'t run')
-                                    break
+                                    continue
 
                                 # check site
                                 site_name = task.request.site
@@ -352,16 +377,13 @@ class DownloadsQueue():
 
                 if running_task:
 
-                    await self.stats.GroupAddRun( group_name )
-                    await self.stats.SiteAddRun( site_name )
-                    await self.stats.UserAddRun( user_id, site_name, group_name )
-
                     context = variables.DownloaderContext(
                         save_folder = DC.save_folder,
                         exec_folder = DC.exec_folder,
                         temp_folder = DC.temp_folder,
                         compression = DC.compression,
-                        downloader =  DC.downloaders[ QC.sites[ site_name ].downloader ]
+                        downloader =  DC.downloaders[ QC.sites[ site_name ].downloader ],
+                        page_delay =  QC.sites[ site_name ].page_delay
                     )
 
                     running_task.proc = Process(
@@ -376,6 +398,9 @@ class DownloadsQueue():
                         daemon=True
                     )
                     running_task.proc.start()
+
+                    await self.stats.AddRun( user_id, site_name, group_name )
+                    await self.stats.RemoveWaiting( user_id, site_name, group_name )
 
                     logger.info(f'DQ: started task {task_id}:' + str(running_task.proc) )
         except:
@@ -411,9 +436,7 @@ class DownloadsQueue():
                 if await self.running.Exists( task_id ):
                     await self.running.RemoveTask( task_id )
 
-                await self.stats.GroupRemoveRun( group_name )
-                await self.stats.SiteRemoveRun( site_name )
-                await self.stats.UserRemoveRun( user_id, site_name, group_name )
+                await self.stats.RemoveRun( user_id, site_name, group_name )
             else:
                 raise Exception("Task not found")
 

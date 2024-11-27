@@ -77,7 +77,7 @@ class DownloaderConfig():
 
         self.downloaders = downloaders
 
-        print(self)
+        # print(self)
 
 @dataclass
 class DownloaderConfigExec():

@@ -8,6 +8,9 @@ from .queue_waiting import *
 from .queue_running import *
 from .queue_sites_groups import *
 
+class WaitingLimitException(Exception):
+    pass
+
 @dataclass(frozen=True)
 class DownloaderStep():
 	CANCELLED = 99

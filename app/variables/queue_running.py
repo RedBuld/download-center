@@ -3,6 +3,7 @@ import asyncio
 from typing import List, Dict, Any
 from multiprocessing import Process
 from app import models
+from app import schemas
 
 class QueueRunning():
     tasks: Dict[ int, QueueRunningTask ] = {}
@@ -33,6 +34,18 @@ class QueueRunning():
     
     #
 
+    async def CheckDuplicate( self, request: schemas.DownloadRequest ) -> bool:
+        for _, task in self.tasks.items():
+            if task.request.user_id == request.user_id and task.request.url == request.url \
+                and \
+               task.request.start == request.start and task.request.end == request.end \
+                and \
+               task.request.images == request.images:
+                return True
+        return False
+    
+    #
+    
     async def Exists( self, task_id: int ) -> bool:
         ok: bool = task_id in self.tasks
         return ok
@@ -82,6 +95,7 @@ class QueueRunningTask():
     group:       str = ""
     url:         str = ""
     last_status: str = ""
+    request:     models.DownloadRequest
     proc:        Process
 
     def __init__(
@@ -96,6 +110,7 @@ class QueueRunningTask():
         self.site = request.site
         self.url = request.url
         self.last_status = ""
+        self.request = request
 
     def __repr__( self ) -> str:
         return '<QueueRunningTask '+str( {

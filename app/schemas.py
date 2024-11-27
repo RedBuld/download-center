@@ -24,6 +24,7 @@ class DownloadRequest(BaseModel):
     password:   str | None = ""
     images:     bool | None = False
     cover:      bool | None = False
+    hashtags:   str = "no"
     proxy:      str | None = ""
 
     class Config:

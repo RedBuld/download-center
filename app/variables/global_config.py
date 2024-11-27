@@ -6,11 +6,12 @@ from typing import Dict, Any
 
 
 class GlobalConfig():
-    bot_host:    str
-    queue_host:  str
-    inited:      bool = False
+    bot_host:     str
+    queue_host:   str
+    redis_server: str
+    inited:       bool = False
 
-    async def updateConfig( self ):
+    def __init__( self ):
         config_path = []
 
         cwd = os.getcwd()
@@ -35,6 +36,22 @@ class GlobalConfig():
             if not self.inited:
                 raise e
             traceback.print_exc()
+        
 
-        self.bot_host = config['bot_host'] if 'bot_host' in config else ''
-        self.queue_host = config['queue_host'] if 'queue_host' in config else ''
+        if 'bot_host' in config:
+            self.bot_host = config['bot_host']
+        else:
+            raise Exception('No bot_host defined')
+
+        if 'queue_host' in config:
+            self.queue_host = config['queue_host']
+        else:
+            raise Exception('No queue_host defined')
+
+        if 'redis_server' in config:
+            self.redis_server = config['redis_server']
+        else:
+            raise Exception('No redis_server defined')
+
+    async def updateConfig( self ):
+        self.__init__()

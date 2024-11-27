@@ -19,15 +19,24 @@ from app import models
 logger = logging.getLogger(__name__)
 
 class DataBase(object):
-    _engine: Engine
-    _session: sessionmaker[Session]
+    _engine: Engine = None
+    _session: sessionmaker[Session] = None
 
     __server: str = ""
 
     def __init__(self):
-        self._engine = None
-        self._session = None
-        return
+        config_file = os.path.join( os.getcwd(), 'app', 'configs', 'database.json' )
+
+        config: Dict[str,Any] = {}
+
+        if not os.path.exists(config_file):
+            raise FileNotFoundError(config_file)
+
+        with open( config_file, 'r', encoding='utf-8' ) as _config_file:
+            _config = _config_file.read()
+            config = ujson.loads( _config )
+
+        self.__server = config['server'] if 'server' in config else ""
     
     async def Start(self) -> None:
         if self._engine:
@@ -68,23 +77,11 @@ class DataBase(object):
             #     await conn.commit()
     
     async def UpdateConfig(self) -> None:
-
-        config_file = os.path.join( os.getcwd(), 'app', 'configs', 'database.json' )
-
-        config: Dict[str,Any] = {}
-
-        if not os.path.exists(config_file):
-            raise FileNotFoundError(config_file)
-
-        with open( config_file, 'r', encoding='utf-8' ) as _config_file:
-            _config = _config_file.read()
-            config = ujson.loads( _config )
-
-        self.__server = config['server'] if 'server' in config else ""
-
+        self.__init__()
         if self._engine:
             await self.Stop()
             await self.Start()
+        
     
     #
 

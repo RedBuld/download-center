@@ -11,7 +11,7 @@ import traceback
 import shutil
 import subprocess
 from multiprocessing import Queue
-from typing import Dict, Any
+from typing import Dict, List, Any
 from app import models
 from app import schemas
 from app import variables
@@ -106,10 +106,29 @@ class Downloader():
         self.decoder = 'utf-8'
         self.file_limit = 249_000_000
 
-    def __prepare_hashtag( self, text: str ) -> str:
-        text = re.sub(r'[^A-Za-z0-9А-Яа-яёЁ]', ' ', text)
-        text = re.sub(r'\s+', '_', text.strip())
-        return text
+    def __prepare_hashtags( self, raw_hashtags: List[str] = [] ) -> List[str]:
+        htm = self.request.hashtags
+        if htm == 'bf':
+            return self.__prepare_hashtags_bf(raw_hashtags)
+        elif htm == 'gf':
+            return self.__prepare_hashtags_gf(raw_hashtags)
+        else:
+            return []
+
+    def __prepare_hashtags_bf( self, raw_hashtags: List[str] = [] ) -> List[str]:
+        hashtags = []
+        for hashtag in raw_hashtags:
+            hashtag = re.sub(r'[^A-Za-z0-9А-Яа-яёЁ]', ' ', hashtag)
+            hashtag = re.sub(r'\s+', '_', hashtag.strip())
+            hashtags.append( f'#{hashtag}' )
+        return hashtags
+
+    def __prepare_hashtags_gf( self, raw_hashtags: List[str] = [] ) -> List[str]:
+        hashtags = []
+        for hashtag in raw_hashtags:
+            hashtag = re.sub(r'[^A-Za-z0-9А-Яа-яёЁ]', '', hashtag).lower()
+            hashtags.append( f'#{hashtag}' )
+        return hashtags
 
     def __escape_err( self, text: str ) -> str:
         text = text.translate(
@@ -312,9 +331,12 @@ class Downloader():
             error = ( await self.proc.stdout.read() ).decode('utf-8')
             error += ( await self.proc.stderr.read() ).decode('utf-8')
             if 'с ошибкой' in message and error:
-                raise Exception(message + '\n' + error)
+                if 'Получен бан. Попробуйте позже' in message:
+                    raise Exception('Получен бан. Попробуйте позже.')
+                else:
+                    raise Exception(message + '\n' + error)
             else:
-                raise FileExistsError('No files downloaded')
+                raise FileExistsError('Ощибка загрузки файлов')
     
     async def process(self) -> None:
 
@@ -565,7 +587,7 @@ class Downloader():
             if 'Author' in _json:
                 if 'Name' in _json['Author']:
                     _a_name: str = _json['Author']['Name'].replace('\n',' ')
-                    hashtags.append('#'+self.__prepare_hashtag(_a_name))
+                    hashtags.append(_a_name)
                     if 'Url' in _json['Author']:
                         _a_url: str = _json['Author']['Url']
                         authors.append( f'<a href="{_a_url}">{_a_name}</a>' )
@@ -578,7 +600,7 @@ class Downloader():
                 for _author in _json['CoAuthors']:
                     if 'Name' in _author:
                         _c_name: str = _author['Name'].replace('\n',' ')
-                        hashtags.append('#'+self.__prepare_hashtag(_c_name))
+                        hashtags.append(_c_name)
                         if 'Url' in _author:
                             _c_url: str = _author['Url']
                             authors.append( f'<a href="{_c_url}">{_c_name}</a>' )
@@ -588,7 +610,7 @@ class Downloader():
             if 'Seria' in _json and _json['Seria']:
                 if 'Name' in _json['Seria']:
                     seria_name = _json['Seria']['Name'].replace('\n',' ')
-                    hashtags.append('#'+self.__prepare_hashtag(seria_name))
+                    hashtags.append(seria_name)
                     if 'Number' in _json['Seria']:
                         seria_name += ' #' + str(_json['Seria']['Number'])
                     if 'Url' in _json['Seria']:
@@ -639,6 +661,8 @@ class Downloader():
         if chapters:
             result += "\n"
             result += f'{chapters}'
+
+        hashtags = self.__prepare_hashtags(hashtags)
         
         if hashtags:
             result += "\n"
