@@ -9,6 +9,7 @@ class DownloaderConfig():
     save_folder:   str | os.PathLike
     exec_folder:   str | os.PathLike
     temp_folder:   str | os.PathLike
+    arch_folder:   str | os.PathLike
     compression:   Dict[ str, str | os.PathLike ]
     downloaders:   Dict[ str, DownloaderConfigExec ]
     inited:        bool = False
@@ -18,6 +19,7 @@ class DownloaderConfig():
             'save_folder': self.save_folder,
             'exec_folder': self.exec_folder,
             'temp_folder': self.temp_folder,
+            'arch_folder': self.arch_folder,
             'compression': self.compression,
             'downloaders': self.downloaders,
         })
@@ -62,6 +64,10 @@ class DownloaderConfig():
             self.temp_folder = config['temp_folder']
         else:
             raise Exception('No temp_folder in downloader.json config')
+        if 'arch_folder' in config:
+            self.arch_folder = config['arch_folder']
+        else:
+            raise Exception('No arch_folder in downloader.json config')
         
         if 'downloaders' in config:
             _downloaders = config['downloaders'] if 'downloaders' in config else {}
@@ -95,6 +101,7 @@ class DownloaderContext():
     save_folder:   str | os.PathLike
     exec_folder:   str | os.PathLike
     temp_folder:   str | os.PathLike
-    compression:   Dict[ str, str | os.PathLike ]
+    arch_folder:   str | os.PathLike
+    compression:   Dict[ str, Dict[ str, str | os.PathLike ] ]
     downloader:    DownloaderConfigExec
     page_delay:    int = 0

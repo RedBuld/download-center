@@ -104,7 +104,7 @@ class Downloader():
 
         self.done = False
         self.decoder = 'utf-8'
-        self.file_limit = 249_000_000
+        self.file_limit = 1_549_000_000
 
     def __prepare_hashtags( self, raw_hashtags: List[str] = [] ) -> List[str]:
         htm = self.request.hashtags
@@ -129,6 +129,43 @@ class Downloader():
             hashtag = re.sub(r'[^A-Za-z0-9А-Яа-яёЁ]', '', hashtag).lower()
             hashtags.append( f'#{hashtag}' )
         return hashtags
+    
+    def __prepare_chapters( self ) -> str:
+        _ret = self.temp.last_chapter_name
+        suffix = ''
+        
+        _total = self.temp.chapters_total
+        _valid = self.temp.chapters_valid
+        if self.temp.chapters_valid < self.temp.chapters_total:
+            _total = self.temp.chapters_valid
+        if _valid > 1:
+            _ret = f'По: "{_ret}"'
+        if _total > 0:
+            _start = int(self.request.start)
+            _end = int(self.request.end)
+
+            if _start != 0 and _end != 0:
+                suffix = f'{_start} - {_end}'
+            elif _start != 0 and _end == 0:
+                if _start > 0:
+                    _end = _start + _total
+                    suffix = f'{_start} - {_end}'
+            else:
+                suffix = f'1 - {_total}'
+        
+        if self.temp.chapters_valid < self.temp.chapters_total:
+            if suffix:
+                suffix += f' / {self.temp.chapters_total}'
+        if suffix:
+            suffix = f' [{suffix}]'
+        # if self.temp.first_chapter_name and self.temp.last_chapter_name:
+        #     if self.request.start or self.request.end:
+        #         chapters = f'Глав {self.temp.chapters_valid} из {self.temp.chapters_total}, с "{self.temp.first_chapter_name}" по "{self.temp.last_chapter_name}"'
+        #     else:
+        #         chapters = f'Глав {self.temp.chapters_valid} из {self.temp.chapters_total}, по "{self.temp.last_chapter_name}"'
+        # else:
+        #     chapters = f'Глав {self.temp.chapters_valid} из {self.temp.chapters_total}'
+        return f'{_ret}{suffix}'
 
     def __escape_err( self, text: str ) -> str:
         text = text.translate(
@@ -274,6 +311,9 @@ class Downloader():
                 args.append('--password')
                 args.append(f'{self.request.password}')
 
+        args.append('--book-name-pattern')
+        args.append('{Book.Title}')
+
         logger.info('#'*20)
         logger.info('#'*20)
         logger.info(' '.join([os.path.join(self.context.exec_folder, self.context.downloader.folder, self.context.downloader.exec), *args]) )
@@ -413,37 +453,21 @@ class Downloader():
         suffix = ''
         if self.request.format != 'mp3':
             if self.request.start or self.request.end:
-                _chapters = self.temp.chapters
+                _chapters = self.temp.chapters_total
                 if _chapters > 0:
-                    _start = self.request.start
-                    _end = self.request.end
+                    _start = int(self.request.start)
+                    _end = int(self.request.end)
 
-                    if _start and _end:
-                        _start = int(_start)
-                        _end = int(_end)
-                        if _start > 0 and _end > 0:
-                            suffix = f'-parted-from-{_start}-to-{_end}'
-                        elif _start > 0 and _end < 0:
-                            __end = _start+_chapters
-                            suffix = f'-parted-from-{_start}-wo-last-{__end}'
-                    elif _start and not _end:
-                        _start = int(_start)
+                    if _start != 0 and _end != 0:
+                        suffix = f'-from-{_start}-to-{_end}'
+                    elif _start != 0 and _end == 0:
                         if _start > 0:
-                            __end = _start+_chapters
-                            suffix = f'-parted-from-{_start}-to-{__end}'
+                            _end = _start + _chapters
+                            suffix = f'-from-{_start}-to-{_end}'
                         else:
-                            if abs(_start) >= _chapters:
-                                suffix = f'-parted-last-{_start}'
-                    elif _end and not _start:
-                        _end = int(_end)
-                        if _end > 0:
-                            suffix = f'-parted-from-1-to-{_chapters}'
-                        else:
-                            _end = abs(_end)
-                            if _end >= _chapters:
-                                suffix = f'-parted-from-1-to-{_chapters}'
-                            else:
-                                suffix = f'-parted-wo-last-{_end}'
+                            suffix = f'-last-{abs(_start)}'
+                    elif _end != 0 and _start == 0:
+                        suffix = f'-from-1-to-{_chapters}'
 
             if suffix != '':
                 for file in self.temp.source_files:
@@ -485,13 +509,13 @@ class Downloader():
 
         orig_size = 0
         result_files = []
-        splitted_folder = ""
+        splitted_folder = ''
 
         # print('process_files',self.temp.source_files)
 
         preselected_archiver = None
         for key, executable in self.context.compression.items():
-            if os.path.exists( executable ):
+            if os.path.exists( executable['bin'] ):
                 preselected_archiver = key
 
         if len(self.temp.source_files) > 0:
@@ -509,7 +533,7 @@ class Downloader():
                     file = os.path.basename(original_file)
                     file_name, _ = os.path.splitext(file)
 
-                    splitted_folder = os.path.join(self._folder, 'splitted')
+                    splitted_folder = os.path.join(self.context.arch_folder, str(self.request.task_id))
                     os.makedirs(splitted_folder, exist_ok=True)
 
                     target_archive = os.path.join(splitted_folder, f'{file_name}')
@@ -519,10 +543,10 @@ class Downloader():
                             sfs = int(self.file_limit / 1000 / 1000)
                             _sfs = f'{sfs}m'
                             args = [f'-s{_sfs}', '-0', target_archive, original_file]
-                        if preselected_archiver == 'winrar':
-                            sfs = int(self.file_limit / 1000 / 1000)
-                            _sfs = f'{sfs}m'
-                            args = ['a', '-afzip', f'-v{_sfs}', '-ep', '-m0', target_archive, original_file]
+                        # if preselected_archiver == 'winrar':
+                        #     sfs = int(self.file_limit / 1000 / 1000)
+                        #     _sfs = f'{sfs}m'
+                        #     args = ['a', '-afzip', f'-v{_sfs}', '-ep', '-m0', target_archive, original_file]
                         if preselected_archiver == 'rar':
                             sfs = int(self.file_limit / 1000 / 1000)
                             _sfs = f'{sfs}m'
@@ -533,10 +557,12 @@ class Downloader():
                             args = ['a', f'-v{_sfs}', '-mx0', target_archive, original_file]
 
                         self.proc = await asyncio.create_subprocess_exec(
-                            executable,
+                            self.context.compression[ preselected_archiver ]['bin'],
                             *args,
+                            cwd=self.context.compression[ preselected_archiver ]['cwd'],
+                            env=os.environ,
                             stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE,
+                            stderr=subprocess.PIPE
                         )
                         await self.proc.wait()
 
@@ -545,6 +571,13 @@ class Downloader():
                                 os.unlink(file)
                             except:
                                 pass
+                        else:
+                            error = await self.proc.stdout.read()
+                            error += await self.proc.stderr.read()
+                            if error:
+                                raise Exception(error.decode('utf-8'))
+                            else:
+                                raise ProcessLookupError('Process closed unexpectedly')
 
         if splitted_folder:
             t = os.listdir(splitted_folder)
@@ -617,28 +650,16 @@ class Downloader():
                         seria_url = _json['Seria']['Url']
 
             if 'Chapters' in _json and _json['Chapters']:
-                total_chapters: int = 0
-                valid_chapters: int = 0
-                first_chapter: str = ''
-                last_chapter: str = ''
                 if len(_json['Chapters']) > 0:
                     for chapter in _json['Chapters']:
                         if chapter['Title']:
-                            total_chapters += 1
+                            self.temp.chapters_total += 1
                             if chapter['IsValid']:
-                                valid_chapters += 1
+                                self.temp.chapters_valid += 1
                                 _c_name = chapter['Title'].replace('\n',' ')
-                                if not first_chapter:
-                                    first_chapter = _c_name
-                                last_chapter = _c_name
-                    if first_chapter and last_chapter:
-                        if self.request.start or self.request.end:
-                            chapters = f'Глав {valid_chapters} из {total_chapters}, с "{first_chapter}" по "{last_chapter}"'
-                        else:
-                            chapters = f'Глав {valid_chapters} из {total_chapters}, по "{last_chapter}"'
-                    else:
-                        chapters = f'Глав {valid_chapters} из {total_chapters}'
-                self.temp.chapters = total_chapters
+                                if not self.temp.first_chapter_name:
+                                    self.temp.first_chapter_name = _c_name
+                                self.temp.last_chapter_name = _c_name
 
         result = ""
         if book_title and book_url:
@@ -658,6 +679,7 @@ class Downloader():
         elif seria_name:
             result += f'Серия: {seria_name}\n'
         
+        chapters = self.__prepare_chapters()
         if chapters:
             result += "\n"
             result += f'{chapters}'

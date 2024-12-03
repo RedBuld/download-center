@@ -55,7 +55,7 @@
             "simultaneously": 1,
             "delay": 300,
             "delay_per_user": 600,
-            "page_delay": 4
+            "page_delay": 2
         },
 		"bookinbook.ru": {
             "active": true,
@@ -133,7 +133,7 @@
             "simultaneously": 1,
             "delay": 120,
             "delay_per_user": 480,
-            "page_delay": 3,
+            "page_delay": 1,
             "waiting_per_user": 5
         },
 		"fictionbook.ru": {
@@ -190,7 +190,7 @@
             "active": true,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books"],
-            "page_delay": 2
+            "page_delay": 1
         },
 		"litmir.me": {
             "active": true,
@@ -202,7 +202,7 @@
             "parameters": ["paging","auth"],
             "allowed_groups": ["books"],
             "simultaneously": 1,
-            "page_delay": 2,
+            "page_delay": 1,
             "delay": 90,
             "delay_per_user": 95
         },
@@ -211,7 +211,7 @@
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books","audiobooks","pdf"],
             "delay": 30,
-            "page_delay": 2
+            "page_delay": 1
         },
 		"litsovet.ru": {
             "active": true,
@@ -252,7 +252,8 @@
             "simultaneously": 1,
             "delay": 60,
             "delay_per_user": 300,
-            "page_delay": 3
+            "waiting_per_user": 5,
+            "page_delay": 1
         },
 		"romfant.ru": {
             "active": true,
@@ -273,7 +274,7 @@
             "delay": 240,
             "delay_per_user": 600,
             "waiting_per_user": 1,
-            "page_delay": 6
+            "page_delay": 3
         },
 		"topliba.com": {
             "active": true,
@@ -328,7 +329,7 @@
             "simultaneously": 1,
             "delay": 300,
             "delay_per_user": 600,
-            "page_delay": 4
+            "page_delay": 2
         },
         "ranobe.ovh": {
             "active": true,
@@ -336,7 +337,7 @@
             "allowed_groups": ["ranobe"],
             "simultaneously": 1,
             "delay_per_user": 120,
-            "page_delay": 3
+            "page_delay": 1
         },
         "ranobelib.me": {
             "active": true,
@@ -345,7 +346,7 @@
             "proxy": "http://89.23.110.141:3128/",
             "simultaneously": 1,
             "delay_per_user": 120,
-            "page_delay": 3
+            "page_delay": 1
         },
         "ranobes.com": {
             "active": true,
@@ -373,7 +374,7 @@
         "younettranslate.com": {
             "active": true,
             "parameters": ["paging","images"],
-            "allowed_groups": ["ranobe"],
+            "allowed_groups": ["ranobe","manga"],
             "proxy": "http://89.23.110.141:3128/"
         },
         "xn--80ac9aeh6f.xn--p1ai": {
@@ -398,7 +399,7 @@
             "allowed_groups": ["manga"],
             "proxy": "http://89.23.110.141:3128/",
             "simultaneously": 1,
-            "page_delay": 2
+            "page_delay": 1
         },
         "manga.ovh": {
             "active": true,
@@ -406,7 +407,7 @@
             "allowed_groups": ["manga"],
             "simultaneously": 1,
             "delay_per_user": 120,
-            "page_delay": 3
+            "page_delay": 2
         },
 		"mangalib.me": {
             "active": true,
@@ -414,7 +415,7 @@
             "allowed_groups": ["manga"],
             "simultaneously": 1,
             "delay_per_user": 120,
-            "page_delay": 3
+            "page_delay": 1
         },
         "test-front.mangalib.me": {
             "active": true,
@@ -431,28 +432,28 @@
             "proxy": "http://89.23.110.141:3128/",
             "simultaneously": 1,
             "delay_per_user": 120,
-            "page_delay": 3
+            "page_delay": 1
         },
 		"mangamammy.ru": {
             "active": true,
             "parameters": ["paging","force_images"],
             "simultaneously": 1,
             "allowed_groups": ["manga"],
-            "page_delay": 3
+            "page_delay": 1
         },
         "readmanga.live": {
             "active": true,
             "parameters": ["paging","force_images"],
             "allowed_groups": ["manga"],
             "simultaneously": 1,
-            "page_delay": 3
+            "page_delay": 1
         },
 		"remanga.org": {
             "active": true,
             "parameters": ["paging","force_images","auth"],
             "allowed_groups": ["manga"],
             "simultaneously": 1,
-            "page_delay": 3
+            "page_delay": 1
         }
 	}
 }

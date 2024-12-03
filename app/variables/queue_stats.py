@@ -369,7 +369,7 @@ class QueueStats(QueueStatsRoot):
     async def UserInit( self, user_id: int ) -> bool:
         if user_id not in self.users:
             self.users[ user_id ] = QueueStatsUser( 'user', user_id )
-            await self.users[ user_id ].Restore()
+            ignore = await self.users[ user_id ].Restore()
         return True
 
     async def UserDestroy( self, user_id: int ) -> bool:
@@ -385,23 +385,23 @@ class QueueStats(QueueStatsRoot):
     #
 
     async def UserCanAdd( self, user_id: int, site_name: str, group_name: str ) -> bool:
-        await self.UserInit( user_id )
+        ignore = await self.UserInit( user_id )
         return await self.users[ user_id ].CanAdd( site_name, group_name )
 
     async def UserCanStart( self, user_id: int, site_name: str, group_name: str ) -> bool:
-        await self.UserInit( user_id )
+        ignore = await self.UserInit( user_id )
         return await self.users[ user_id ].CanStart( site_name, group_name )
     
     #
 
     async def UserAddRun( self, user_id: int, site_name: str, group_name: str ) -> None:
-        await self.UserInit( user_id )
+        ignore = await self.UserInit( user_id )
         await self.users[ user_id ].SiteInit( site_name )
         await self.users[ user_id ].GroupInit( group_name )
         await self.users[ user_id ].AddRun( site_name, group_name )
 
     async def UserRemoveRun( self, user_id: int, site_name: str, group_name: str ) -> None:
-        await self.UserInit( user_id )
+        ignore = await self.UserInit( user_id )
         await self.users[ user_id ].SiteInit( site_name )
         await self.users[ user_id ].GroupInit( group_name )
         await self.users[ user_id ].RemoveRun( site_name, group_name )
@@ -409,13 +409,13 @@ class QueueStats(QueueStatsRoot):
     #
 
     async def UserAddWaiting( self, user_id: int, site_name: str, group_name: str ) -> None:
-        await self.UserInit( user_id )
+        ignore = await self.UserInit( user_id )
         await self.users[ user_id ].SiteInit( site_name )
         await self.users[ user_id ].GroupInit( group_name )
         await self.users[ user_id ].AddWaiting( site_name, group_name )
 
     async def UserRemoveWaiting( self, user_id: int, site_name: str, group_name: str ) -> None:
-        await self.UserInit( user_id )
+        ignore = await self.UserInit( user_id )
         await self.users[ user_id ].SiteInit( site_name )
         await self.users[ user_id ].GroupInit( group_name )
         await self.users[ user_id ].RemoveWaiting( site_name, group_name )

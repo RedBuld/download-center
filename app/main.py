@@ -190,3 +190,13 @@ async def download_cancel( request: schemas.DownloadCancelRequest ):
             status_code = 500,
             content =     "Произошла ошибка: "+str(e)
         )
+@app.post('/download/cancel_obj', )
+async def download_cancel( request: schemas.DownloadCancelRequest ):
+    try:
+        resp = await asyncio.wait_for( DQ.CancelTask( request, True ), 10 )
+        return resp
+    except Exception as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     "Произошла ошибка: "+str(e)
+        )

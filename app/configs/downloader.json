@@ -2,10 +2,20 @@
     "exec_folder": "/srv/download-center/app/exec",
     "save_folder": "/mnt/bot_temp/v3results",
     "temp_folder": "/mnt/bot_temp/v3temp",
+    "arch_folder": "/mnt/v3archiving",
     "compression": {
-        "7z": "7z",
-        "rar": "rar",
-        "zip": "zip"
+        "zip": {
+            "bin": "/usr/bin/zip",
+            "cwd": "/usr/bin/"
+        },
+        "7z": {
+            "bin": "/usr/bin/7z",
+            "cwd": "/usr/bin/"
+        },
+        "rar": {
+            "bin": "/usr/bin/rar",
+            "cwd": "/usr/bin/"
+        }
     },
     "downloaders": {
         "elib2ebook": {

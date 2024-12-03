@@ -202,7 +202,7 @@ class DownloadsQueue():
             message = str(request.task_id)
         )
 
-    async def CancelTask(self, cancel_request: schemas.DownloadCancelRequest) -> bool:
+    async def CancelTask(self, cancel_request: schemas.DownloadCancelRequest, return_object: False) -> bool | schemas.SiteListResponse:
         logger.info( 'DQ: cancel task:' + str( cancel_request.model_dump() ) )
 
         try:
@@ -215,6 +215,24 @@ class DownloadsQueue():
                 await self.stats.RemoveRun( running_task.user_id, running_task.site, running_task.group )
 
             await DB.DeleteRequest( cancel_request.task_id )
+
+            if return_object:
+                if waiting_task:
+                    return schemas.DownloadCancelResponse(
+                        user_id = waiting_task.request.user_id,
+                        bot_id = waiting_task.request.bot_id,
+                        web_id = waiting_task.request.web_id,
+                        chat_id = waiting_task.request.chat_id,
+                        message_id = waiting_task.request.message_id
+                    )
+                if running_task:
+                    return schemas.DownloadCancelResponse(
+                        user_id = running_task.request.user_id,
+                        bot_id = running_task.request.bot_id,
+                        web_id = running_task.request.web_id,
+                        chat_id = running_task.request.chat_id,
+                        message_id = running_task.request.message_id
+                    )
             return True
         except:
             traceback.print_exc()
@@ -249,6 +267,7 @@ class DownloadsQueue():
 
     async def __stats_flush_runner(self) -> None:
         while True:
+            await asyncio.sleep(300)
             try:
                 self.tasks_pause = True
                 await self.stats.Flush()
@@ -257,7 +276,6 @@ class DownloadsQueue():
                 traceback.print_exc()
             if self.stop_queue:
                 break
-            await asyncio.sleep(300)
 
     async def __results_runner(self) -> None:
         logger.info( 'DQ: __results_runner started' )
@@ -381,6 +399,7 @@ class DownloadsQueue():
                         save_folder = DC.save_folder,
                         exec_folder = DC.exec_folder,
                         temp_folder = DC.temp_folder,
+                        arch_folder = DC.arch_folder,
                         compression = DC.compression,
                         downloader =  DC.downloaders[ QC.sites[ site_name ].downloader ],
                         page_delay =  QC.sites[ site_name ].page_delay
@@ -449,6 +468,9 @@ class DownloadsQueue():
         await self.__send_files( result )
 
     async def __send_files(self, result: schemas.DownloadResult) -> None:
+
+        if result.text == '':
+            result.text = 'нет описания'
 
         sended = await IC.Send(result)
 

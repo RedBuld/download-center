@@ -6,6 +6,7 @@ import asyncio
 import calendar
 from typing import Dict, Any
 from datetime import datetime, timedelta
+from dateutil.relativedelta import relativedelta
 from sqlalchemy import select, delete, func, desc
 from sqlalchemy import create_engine
 from sqlalchemy import Engine
@@ -98,6 +99,7 @@ class DataBase(object):
             return result
         except OperationalError as e:
             await asyncio.sleep(1)
+            traceback.print_exc()
             return await self.SaveRequest(request)
         except Exception as e:
             raise e
@@ -117,6 +119,7 @@ class DataBase(object):
             return result
         except OperationalError as e:
             await asyncio.sleep(1)
+            traceback.print_exc()
             return await self.GetRequest(task_id)
         except Exception as e:
             raise e
@@ -174,6 +177,7 @@ class DataBase(object):
             return result
         except OperationalError as e:
             await asyncio.sleep(1)
+            traceback.print_exc()
             return await self.SaveResult(_result)
         except Exception as e:
             raise e
@@ -193,6 +197,7 @@ class DataBase(object):
             return result
         except OperationalError as e:
             await asyncio.sleep(1)
+            traceback.print_exc()
             return await self.GetResult(task_id)
         except Exception as e:
             raise e
@@ -210,6 +215,7 @@ class DataBase(object):
             return result
         except OperationalError as e:
             await asyncio.sleep(1)
+            traceback.print_exc()
             return await self.GetAllResults()
         except Exception as e:
             raise e
@@ -226,6 +232,7 @@ class DataBase(object):
             session.close()
         except OperationalError as e:
             await asyncio.sleep(1)
+            traceback.print_exc()
             return await self.DeleteResult(task_id)
         except Exception as e:
             raise e
@@ -266,6 +273,7 @@ class DataBase(object):
             session.close()
         except OperationalError as e:
             await asyncio.sleep(1)
+            traceback.print_exc()
             return await self.UpdateSiteStat(result)
         except Exception as e:
             raise e
@@ -284,10 +292,10 @@ class DataBase(object):
         previous_day = current_date - timedelta(days=1)
 
         current_month_start = current_date.replace(day=1)
-        current_month_end = current_month_start.replace(month=current_month_start.month+1) - timedelta(days=1)
+        current_month_end = current_month_start - timedelta(days=1) + relativedelta(months=1)
         
-        previous_month_start = current_date.replace(month=current_date.month-1,day=1)
-        previous_month_end = previous_month_start.replace(month=previous_month_start.month+1) - timedelta(days=1)
+        previous_month_start = current_date.replace(day=1) + relativedelta(months=1)
+        previous_month_end = previous_month_start.replace() - timedelta(days=1) + relativedelta(months=1)
 
         current_year_start = current_date.replace(month=1,day=1)
         current_year_end = current_year_start.replace(year=current_year_start.year+1) - timedelta(days=1)

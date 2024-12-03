@@ -52,6 +52,13 @@ class DownloadResponse(BaseModel):
     message: str = ""
     task_id: int | None = None
 
+class DownloadCancelResponse(BaseModel):
+    user_id:    int
+    bot_id:     str | None = None
+    web_id:     str | None = None
+    chat_id:    int
+    message_id: int
+
 class ExportStatsResponse(BaseModel):
     current_day: ExportStatsResponseGroup
     previous_day: ExportStatsResponseGroup
