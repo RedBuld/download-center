@@ -82,6 +82,7 @@ class DownloadResult(Base):
     orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
     oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
     folder: Mapped[str] =     mapped_column('folder', Text, default="")
+    proxy: Mapped[str] =      mapped_column('proxy', Text, default="")
 
     @property
     def files(self):

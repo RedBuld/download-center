@@ -8,72 +8,98 @@ from app.configs import QC
 class QueueStatsObj():
     __type__:  str
     __name__:  str
-    active:    int = 0
+    active_t:  int = 0 # active total
+    active_r:  int = 0 # active raw (no proxy)
+    active_p:  Dict[str,int] = {} # active with proxy
     waiting:   int = 0
-    last_run:  datetime = datetime(1970,1,1)
+    last_run:  Dict[str, float] = {}
 
     def __init__(
             self,
             __type__:  str,
-            __name__:  str,
-            active:    int = 0,
-            waiting:   int = 0,
-            last_run:  datetime = datetime(1970,1,1),
+            __name__:  str
         ):
         self.__type__ =  __type__
         self.__name__ =  __name__
-        self.active =    active
-        self.waiting =   waiting
-        self.last_run =  last_run
+        self.active_t =  0
+        self.active_r =  0
+        self.active_p =  {}
+        self.waiting =   0
+        self.last_run =  {}
 
-    def __repr__( self ) -> str:
-        return '<QueueStatsObj '+str( {
+    @property
+    def __json__( self ) -> str:
+        return {
             '__type__': self.__type__,
             '__name__': self.__name__,
-            'active':   self.active,
+            'active_t': self.active_t,
+            'active_r': self.active_r,
+            'active_p': self.active_p,
             'waiting':  self.waiting,
             'last_run': self.last_run,
-        } )+'>'
+        }
+    def __repr__( self ) -> str:
+        return '<QueueStatsObj '+str( self.__json__ )+'>'
 
     async def Restore(self):
         last_run = await RD.get( f"{self.__type__}_{self.__name__}" )
         if last_run:
-            self.last_run = datetime.fromtimestamp( float( last_run ) )
+            self.last_run = ujson.loads( last_run )
 
     async def Save(self):
-        await RD.setex( f"{self.__type__}_{self.__name__}", 3600, self.last_run.timestamp() )
+        await RD.setex( f"{self.__type__}_{self.__name__}", 3600, ujson.dumps(self.last_run) )
 
-    async def CanStart( self, simultaneously: int, delay: int ) -> bool:
-        sim_can: bool = ( self.active < simultaneously ) if simultaneously > 0 else True
-        lr_: bool = self.last_run < ( datetime.now() - timedelta( seconds=delay ) )
-        return sim_can and lr_
+    async def CanStart( self, obj_name: str, simultaneously_key: str, delay_key: str, proxy: str = '' ) -> bool:
+        source = QC.groups if 'group' in self.__type__ else QC.sites
+
+        max_simultaneously = getattr( source[ obj_name ], 'max_simultaneously' )
+        simultaneously = getattr( source[ obj_name ], simultaneously_key )
+        delay = getattr( source[ obj_name ], delay_key )
+        
+        by_sim_total: bool = ( self.active_t < max_simultaneously ) if max_simultaneously > 0 else True
+
+        if proxy:
+            by_sim_single: bool = ( self.active_p[ proxy ] < simultaneously ) if ( simultaneously > 0 and proxy in self.active_p ) else True
+        else:
+            by_sim_single: bool = ( self.active_r < simultaneously ) if simultaneously > 0 else True
+
+        by_last_run: bool = self.last_run[ proxy ] < ( datetime.now().timestamp() - delay ) if proxy in self.last_run else True
+        return by_sim_total and by_sim_single and by_last_run
 
     async def CanAdd( self, waiting: int) -> bool:
         can: bool = ( self.waiting < waiting ) if waiting > 0 else True
         return can
 
-    async def AddRun( self ) -> bool:
-        self.active += 1
-        self.last_run = datetime.now()
+    async def AddRun( self, proxy: str = '' ) -> bool:
+        if proxy:
+            if proxy not in self.active_p:
+                self.active_p[ proxy ] = 0
+            self.active_p[ proxy ] += 1
+        else:
+            self.active_r += 1
+        self.active_t += 1
+        self.last_run[ proxy ] = datetime.now().timestamp()
         return True
 
-    async def RemoveRun( self ) -> bool:
-        self.active -= 1
-        if self.active < 0:
-            self.active = 0
-        self.last_run = datetime.now()
+    async def RemoveRun( self, proxy: str = '' ) -> bool:
+        if proxy:
+            self.active_p[ proxy ] = self.active_p[ proxy ]-1
+            if self.active_p[ proxy ] <= 0:
+                del self.active_p[ proxy ]
+        else:
+            self.active_r = self.active_r-1 if self.active_r > 1 else 0
+        self.active_t = self.active_t-1 if self.active_t > 1 else 0
+        self.last_run[ proxy ] = datetime.now().timestamp()
         return True
 
     async def AddWaiting( self ) -> bool:
         self.waiting += 1
-        self.last_run = datetime.now()
         return True
 
     async def RemoveWaiting( self ) -> bool:
         self.waiting -= 1
         if self.waiting < 0:
             self.waiting = 0
-        self.last_run = datetime.now()
         return True
 
 class QueueStatsRoot():
@@ -156,54 +182,54 @@ class QueueStatsRoot():
 
     #
 
-    async def CanStart( self, site_name: str, group_name: str ) -> None:
-        group_can = await self.GroupCanStart( group_name )
-        site_can = await self.SiteCanStart( site_name )
+    async def CanStart( self, site_name: str, group_name: str, proxy: str = '' ) -> None:
+        group_can = await self.GroupCanStart( group_name, proxy )
+        site_can = await self.SiteCanStart( site_name, proxy )
         return group_can and site_can
 
-    async def GroupCanStart( self, group_name: str ) -> bool:
+    async def GroupCanStart( self, group_name: str, proxy: str = '' ) -> bool:
         ok: bool = group_name in self.groups
         if ok:
-            return await self.groups[ group_name ].CanStart( getattr( QC.groups[ group_name ], self.simultaneously_key ), getattr( QC.groups[ group_name ], self.delay_key ) )
+            return await self.groups[ group_name ].CanStart( group_name, self.simultaneously_key, self.delay_key, proxy )
         return self.def_can_run
 
-    async def SiteCanStart( self, site_name: str ) -> bool:
+    async def SiteCanStart( self, site_name: str, proxy: str = '' ) -> bool:
         ok: bool = site_name in self.sites
         if ok:
-            return await self.sites[ site_name ].CanStart( getattr( QC.sites[ site_name ], self.simultaneously_key ), getattr( QC.sites[ site_name ], self.delay_key ) )
+            return await self.sites[ site_name ].CanStart( site_name, self.simultaneously_key, self.delay_key, proxy )
         return self.def_can_run
 
     #
 
-    async def AddRun( self, site_name: str, group_name: str ) -> None:
-        await self.GroupAddRun( group_name )
-        await self.SiteAddRun( site_name )
+    async def AddRun( self, site_name: str, group_name: str, proxy: str = '' ) -> None:
+        await self.GroupAddRun( group_name, proxy )
+        await self.SiteAddRun( site_name, proxy )
 
-    async def GroupAddRun( self, group_name: str ) -> None:
+    async def GroupAddRun( self, group_name: str, proxy: str = '' ) -> None:
         ok: bool = group_name in self.groups
         if ok:
-            await self.groups[ group_name ].AddRun()
+            await self.groups[ group_name ].AddRun( proxy )
 
-    async def SiteAddRun( self, site_name: str ) -> None:
+    async def SiteAddRun( self, site_name: str, proxy: str = '' ) -> None:
         ok: bool = site_name in self.sites
         if ok:
-            await self.sites[ site_name ].AddRun()
+            await self.sites[ site_name ].AddRun( proxy )
 
     #
 
-    async def RemoveRun( self, site_name: str, group_name: str ) -> None:
-        await self.GroupRemoveRun( group_name )
-        await self.SiteRemoveRun( site_name )
+    async def RemoveRun( self, site_name: str, group_name: str, proxy: str = '' ) -> None:
+        await self.GroupRemoveRun( group_name, proxy )
+        await self.SiteRemoveRun( site_name, proxy )
 
-    async def GroupRemoveRun( self, group_name: str ) -> None:
+    async def GroupRemoveRun( self, group_name: str, proxy: str = '' ) -> None:
         ok: bool = group_name in self.groups
         if ok:
-            await self.groups[ group_name ].RemoveRun()
+            await self.groups[ group_name ].RemoveRun( proxy )
 
-    async def SiteRemoveRun( self, site_name: str ) -> None:
+    async def SiteRemoveRun( self, site_name: str, proxy: str = '' ) -> None:
         ok: bool = site_name in self.sites
         if ok:
-            await self.sites[ site_name ].RemoveRun()
+            await self.sites[ site_name ].RemoveRun( proxy )
     
     #
 
@@ -304,13 +330,13 @@ class QueueStatsUser(QueueStatsRoot):
     async def GroupNotBusy( self, group_name: str ) -> bool:
         ok: bool = group_name in self.groups
         if ok:
-            return self.groups[ group_name ].active == 0 and self.groups[ group_name ].waiting == 0
+            return self.groups[ group_name ].active_t == 0 and self.groups[ group_name ].waiting == 0
         return True
 
     async def SiteNotBusy( self, site_name: str ) -> bool:
         ok: bool = site_name in self.sites
         if ok:
-            return self.sites[ site_name ].active == 0 and self.sites[ site_name ].waiting == 0
+            return self.sites[ site_name ].active_t == 0 and self.sites[ site_name ].waiting == 0
         return True
 
 class QueueStats(QueueStatsRoot):
@@ -336,9 +362,9 @@ class QueueStats(QueueStatsRoot):
             'groups': {},
         }
         for site_name in self.sites.keys():
-            result['sites'][site_name] = self.sites[ site_name ].active
+            result['sites'][site_name] = self.sites[ site_name ].active_t
         for group_name in self.groups.keys():
-            result['groups'][group_name] = self.groups[ group_name ].active
+            result['groups'][group_name] = self.groups[ group_name ].active_t
         return result
 
 
@@ -369,7 +395,7 @@ class QueueStats(QueueStatsRoot):
     async def UserInit( self, user_id: int ) -> bool:
         if user_id not in self.users:
             self.users[ user_id ] = QueueStatsUser( 'user', user_id )
-            ignore = await self.users[ user_id ].Restore()
+            await self.users[ user_id ].Restore()
         return True
 
     async def UserDestroy( self, user_id: int ) -> bool:
@@ -385,52 +411,52 @@ class QueueStats(QueueStatsRoot):
     #
 
     async def UserCanAdd( self, user_id: int, site_name: str, group_name: str ) -> bool:
-        ignore = await self.UserInit( user_id )
+        await self.UserInit( user_id )
         return await self.users[ user_id ].CanAdd( site_name, group_name )
 
-    async def UserCanStart( self, user_id: int, site_name: str, group_name: str ) -> bool:
-        ignore = await self.UserInit( user_id )
-        return await self.users[ user_id ].CanStart( site_name, group_name )
+    async def UserCanStart( self, user_id: int, site_name: str, group_name: str, proxy: str = '' ) -> bool:
+        await self.UserInit( user_id )
+        return await self.users[ user_id ].CanStart( site_name, group_name, proxy )
     
     #
 
-    async def UserAddRun( self, user_id: int, site_name: str, group_name: str ) -> None:
-        ignore = await self.UserInit( user_id )
+    async def UserAddRun( self, user_id: int, site_name: str, group_name: str, proxy: str = '' ) -> None:
+        await self.UserInit( user_id )
         await self.users[ user_id ].SiteInit( site_name )
         await self.users[ user_id ].GroupInit( group_name )
-        await self.users[ user_id ].AddRun( site_name, group_name )
+        await self.users[ user_id ].AddRun( site_name, group_name, proxy )
 
-    async def UserRemoveRun( self, user_id: int, site_name: str, group_name: str ) -> None:
-        ignore = await self.UserInit( user_id )
+    async def UserRemoveRun( self, user_id: int, site_name: str, group_name: str, proxy: str = '' ) -> None:
+        await self.UserInit( user_id )
         await self.users[ user_id ].SiteInit( site_name )
         await self.users[ user_id ].GroupInit( group_name )
-        await self.users[ user_id ].RemoveRun( site_name, group_name )
+        await self.users[ user_id ].RemoveRun( site_name, group_name, proxy )
     
     #
 
     async def UserAddWaiting( self, user_id: int, site_name: str, group_name: str ) -> None:
-        ignore = await self.UserInit( user_id )
+        await self.UserInit( user_id )
         await self.users[ user_id ].SiteInit( site_name )
         await self.users[ user_id ].GroupInit( group_name )
         await self.users[ user_id ].AddWaiting( site_name, group_name )
 
     async def UserRemoveWaiting( self, user_id: int, site_name: str, group_name: str ) -> None:
-        ignore = await self.UserInit( user_id )
+        await self.UserInit( user_id )
         await self.users[ user_id ].SiteInit( site_name )
         await self.users[ user_id ].GroupInit( group_name )
         await self.users[ user_id ].RemoveWaiting( site_name, group_name )
     
     #
 
-    async def AddRun( self, user_id: int, site_name: str, group_name: str ) -> None:
-        await self.GroupAddRun( group_name )
-        await self.SiteAddRun( site_name )
-        await self.UserAddRun( user_id, site_name, group_name )
+    async def AddRun( self, user_id: int, site_name: str, group_name: str, proxy: str = '' ) -> None:
+        await self.GroupAddRun( group_name, proxy )
+        await self.SiteAddRun( site_name, proxy )
+        await self.UserAddRun( user_id, site_name, group_name, proxy )
 
-    async def RemoveRun( self, user_id: int, site_name: str, group_name: str ) -> None:
-        await self.GroupRemoveRun( group_name )
-        await self.SiteRemoveRun( site_name )
-        await self.UserRemoveRun( user_id, site_name, group_name )
+    async def RemoveRun( self, user_id: int, site_name: str, group_name: str, proxy: str = '' ) -> None:
+        await self.GroupRemoveRun( group_name, proxy )
+        await self.SiteRemoveRun( site_name, proxy )
+        await self.UserRemoveRun( user_id, site_name, group_name, proxy )
 
     #
 

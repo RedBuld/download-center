@@ -71,7 +71,7 @@ class DownloadsQueue():
             asyncio.create_task( self.__tasks_runner() )
             await asyncio.sleep( 0 )
 
-            await self.__restore_tasks()
+            # await self.__restore_tasks()
 
             asyncio.create_task( self.__stats_flush_runner() )
             await asyncio.sleep( 0 )
@@ -155,8 +155,8 @@ class DownloadsQueue():
 
             site_config = QC.sites[ site_name ] if site_name in QC.sites else None
 
-            if site_config and site_config.proxy and not request.proxy:
-                request.proxy = site_config.proxy
+            if site_config and QC.proxies.has() and not request.proxy and request.task_id is None:
+                request.proxy = await QC.proxies.getProxy( site_name )
             
             can_be_added = await self.stats.GroupCanAdd( group_name )
             if not can_be_added and raise_on_limit:
@@ -169,6 +169,7 @@ class DownloadsQueue():
             can_be_added = await self.stats.UserCanAdd( request.user_id, site_name, group_name )
             if not can_be_added and raise_on_limit:
                 raise variables.WaitingLimitException('Максимум ожидающих загрузок для сайта/группы')
+
             
             waiting_duplicate = await self.waiting.CheckDuplicate( group_name, request )
             running_duplicate = await self.running.CheckDuplicate( request )
@@ -202,7 +203,7 @@ class DownloadsQueue():
             message = str(request.task_id)
         )
 
-    async def CancelTask(self, cancel_request: schemas.DownloadCancelRequest, return_object: False) -> bool | schemas.SiteListResponse:
+    async def CancelTask(self, cancel_request: schemas.DownloadCancelRequest) -> bool | schemas.SiteListResponse:
         logger.info( 'DQ: cancel task:' + str( cancel_request.model_dump() ) )
 
         try:
@@ -212,28 +213,15 @@ class DownloadsQueue():
 
             running_task = await self.running.RemoveTask( cancel_request.task_id )
             if running_task != False:
-                await self.stats.RemoveRun( running_task.user_id, running_task.site, running_task.group )
+                await self.stats.RemoveRun( running_task.user_id, running_task.site, running_task.group, running_task.request.proxy )
 
             await DB.DeleteRequest( cancel_request.task_id )
 
-            if return_object:
-                if waiting_task:
-                    return schemas.DownloadCancelResponse(
-                        user_id = waiting_task.request.user_id,
-                        bot_id = waiting_task.request.bot_id,
-                        web_id = waiting_task.request.web_id,
-                        chat_id = waiting_task.request.chat_id,
-                        message_id = waiting_task.request.message_id
-                    )
-                if running_task:
-                    return schemas.DownloadCancelResponse(
-                        user_id = running_task.request.user_id,
-                        bot_id = running_task.request.bot_id,
-                        web_id = running_task.request.web_id,
-                        chat_id = running_task.request.chat_id,
-                        message_id = running_task.request.message_id
-                    )
-            return True
+            if waiting_task != False:
+                return schemas.DownloadCancelResponse.model_validate(waiting_task.request, from_attributes=True)
+            if running_task != False:
+                return schemas.DownloadCancelResponse.model_validate(running_task.request, from_attributes=True)
+            return False
         except:
             traceback.print_exc()
             return False
@@ -336,13 +324,13 @@ class DownloadsQueue():
                             # go over waiting tasks
                             for task in tasks:
 
-                                if not await self.stats.GroupCanStart( group_name ):
+                                if not await self.stats.GroupCanStart( group_name, task.request.proxy ):
                                     # logger.info('DQ: group can\'t run')
                                     continue
 
                                 # check site
                                 site_name = task.request.site
-                                if not await self.stats.SiteCanStart( site_name ):
+                                if not await self.stats.SiteCanStart( site_name, task.request.proxy ):
                                     # logger.info('DQ: site can\'t run')
                                     continue
                                 # if i == 0:
@@ -350,7 +338,7 @@ class DownloadsQueue():
 
                                 # check user
                                 user_id = task.request.user_id
-                                if not await self.stats.UserCanStart( user_id, site_name, group_name ):
+                                if not await self.stats.UserCanStart( user_id, site_name, group_name, task.request.proxy ):
                                     # if i == 0:
                                     #     logger.info(f'DQ: user {user_id} can\'t run')
                                     continue
@@ -418,7 +406,7 @@ class DownloadsQueue():
                     )
                     running_task.proc.start()
 
-                    await self.stats.AddRun( user_id, site_name, group_name )
+                    await self.stats.AddRun( user_id, site_name, group_name, waiting_task.request.proxy )
                     await self.stats.RemoveWaiting( user_id, site_name, group_name )
 
                     logger.info(f'DQ: started task {task_id}:' + str(running_task.proc) )
@@ -455,7 +443,7 @@ class DownloadsQueue():
                 if await self.running.Exists( task_id ):
                     await self.running.RemoveTask( task_id )
 
-                await self.stats.RemoveRun( user_id, site_name, group_name )
+                await self.stats.RemoveRun( user_id, site_name, group_name, result.proxy )
             else:
                 raise Exception("Task not found")
 
@@ -485,7 +473,7 @@ class DownloadsQueue():
 
     #
 
-    async def __setup_groups(self, groups: Dict[str, variables.QueueConfigGroups]) -> None:
+    async def __setup_groups(self, groups: Dict[str, variables.QueueConfigGroup]) -> None:
         active_groups: List[str] = []
         waiting_active_groups = await self.waiting.GetActiveGroups()
         stats_active_groups = await self.stats.GetActiveGroups()
@@ -513,7 +501,7 @@ class DownloadsQueue():
 
     #
 
-    async def __setup_sites(self, sites: Dict[str, variables.QueueConfigSites]) -> None:
+    async def __setup_sites(self, sites: Dict[str, variables.QueueConfigSite]) -> None:
         sites_with_auth: List[str] = []
         active_sites: List[str] = []
 

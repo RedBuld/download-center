@@ -6,6 +6,9 @@
         "epub": ["images","force_images","auth","paging"],
         "cbz": ["images","force_images","auth","paging"]
     },
+    "proxies": [
+        "http://89.23.110.141:3128/"
+    ],
     "groups": {
         "pdf": {
             "per_user": 1,
@@ -51,7 +54,7 @@
             "active": true,
             "parameters": ["paging","images"],
             "allowed_groups": ["books"],
-            "proxy": "http://89.23.110.141:3128/",
+            "use_proxy": true,
             "simultaneously": 1,
             "delay": 300,
             "delay_per_user": 600,
@@ -71,13 +74,13 @@
             "active": true,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books"],
-            "proxy": "http://89.23.110.141:3128/"
+            "use_proxy": true
         },
 		"booknet.ua": {
             "active": true,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books"],
-            "proxy": "http://89.23.110.141:3128/"
+            "use_proxy": true
         },
 		"books.yandex.ru": {
             "active": true,
@@ -103,7 +106,7 @@
             "active": true,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books"],
-            "proxy": "http://89.23.110.141:3128/"
+            "use_proxy": true
         },
 		"desu.me": {
             "active": true,
@@ -129,7 +132,7 @@
             "active": true,
             "parameters": ["paging","images"],
             "allowed_groups": ["books"],
-            "proxy": "http://89.23.110.141:3128/",
+            "use_proxy": true,
             "simultaneously": 1,
             "delay": 120,
             "delay_per_user": 480,
@@ -325,7 +328,7 @@
             "active": true,
             "parameters": ["paging","images"],
             "allowed_groups": ["ranobe"],
-            "proxy": "http://89.23.110.141:3128/",
+            "use_proxy": true,
             "simultaneously": 1,
             "delay": 300,
             "delay_per_user": 600,
@@ -343,7 +346,7 @@
             "active": true,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["ranobe"],
-            "proxy": "http://89.23.110.141:3128/",
+            "use_proxy": true,
             "simultaneously": 1,
             "delay_per_user": 120,
             "page_delay": 1
@@ -375,7 +378,7 @@
             "active": true,
             "parameters": ["paging","images"],
             "allowed_groups": ["ranobe","manga"],
-            "proxy": "http://89.23.110.141:3128/"
+            "use_proxy": true
         },
         "xn--80ac9aeh6f.xn--p1ai": {
             "active": true,
@@ -397,7 +400,7 @@
             "active": true,
             "parameters": ["paging","force_images","auth"],
             "allowed_groups": ["manga"],
-            "proxy": "http://89.23.110.141:3128/",
+            "use_proxy": true,
             "simultaneously": 1,
             "page_delay": 1
         },
@@ -421,7 +424,7 @@
             "active": true,
             "parameters": ["paging","force_images","auth"],
             "allowed_groups": ["manga"],
-            "proxy": "http://89.23.110.141:3128/",
+            "use_proxy": true,
             "simultaneously": 1,
             "delay_per_user": 120
         },
@@ -429,7 +432,7 @@
             "active": true,
             "parameters": ["paging","force_images","auth"],
             "allowed_groups": ["manga"],
-            "proxy": "http://89.23.110.141:3128/",
+            "use_proxy": true,
             "simultaneously": 1,
             "delay_per_user": 120,
             "page_delay": 1

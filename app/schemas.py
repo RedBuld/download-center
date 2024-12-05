@@ -24,8 +24,8 @@ class DownloadRequest(BaseModel):
     password:   str | None = ""
     images:     bool | None = False
     cover:      bool | None = False
-    hashtags:   str = "no"
     proxy:      str | None = ""
+    hashtags:   str = "no"
 
     class Config:
         from_attributes = True
@@ -112,7 +112,7 @@ class ExportStatsResponse(BaseModel):
         from_attributes = True
 
 class ExportQueueResponse(BaseModel):
-    stats: Dict[ str, Dict[ str, int ] ] = {}
+    stats: Dict[ str, Dict[ str, Any ] ] = {}
     waiting: List[ ExportQueueWaitingGroup ] = []
     running: List[ ExportQueueRunningGroup ] = []
 
@@ -178,17 +178,15 @@ class ExportQueueRunningGroup(BaseModel):
 
 class ExportQueueWaitingTask(BaseModel):
     task_id: int
-    site: str
-    url: str
+    request: DownloadRequest
 
     class Config:
         from_attributes = True
 
 class ExportQueueRunningTask(BaseModel):
     task_id: int
-    site: str
-    url: str
     last_status: str
+    request: DownloadRequest
 
     class Config:
         from_attributes = True
@@ -210,6 +208,7 @@ class DownloadResult(BaseModel):
     orig_size:  int
     oper_size:  int
     folder:     str
+    proxy:      str | None = ""
 
     class Config:
         from_attributes = True

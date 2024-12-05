@@ -311,8 +311,9 @@ class Downloader():
                 args.append('--password')
                 args.append(f'{self.request.password}')
 
-        args.append('--book-name-pattern')
-        args.append('{Book.Title}')
+        if self.request.site not in ['author.today','litnet.com','litres.ru']:
+            args.append('--book-name-pattern')
+            args.append('{Book.Title}')
 
         logger.info('#'*20)
         logger.info('#'*20)
@@ -376,7 +377,7 @@ class Downloader():
                 else:
                     raise Exception(message + '\n' + error)
             else:
-                raise FileExistsError('Ощибка загрузки файлов')
+                raise FileExistsError('Ошибка загрузки файлов')
     
     async def process(self) -> None:
 
@@ -765,7 +766,8 @@ class Downloader():
             files =      self.temp.result_files,
             orig_size =  self.temp.orig_size,
             oper_size =  self.temp.oper_size,
-            folder =     self._folder
+            folder =     self._folder,
+            proxy =      self.request.proxy
         )
 
         self.results.put( result.model_dump() )
