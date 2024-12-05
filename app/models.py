@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy import BigInteger, Boolean, String, Text, UniqueConstraint, Date
+from sqlalchemy import BigInteger, Boolean, String, Text, UniqueConstraint, Date, DateTime
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
@@ -83,6 +83,7 @@ class DownloadResult(Base):
     oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
     folder: Mapped[str] =     mapped_column('folder', Text, default="")
     proxy: Mapped[str] =      mapped_column('proxy', Text, default="")
+    url: Mapped[str] =        mapped_column('url', Text, default="")
 
     @property
     def files(self):
@@ -91,3 +92,26 @@ class DownloadResult(Base):
     @files.setter
     def files(self, value):
         self._files = json.dumps(value)
+
+
+class DownloadHistory(Base):
+    __tablename__ = "downloads_history"
+
+    id: Mapped[int] =         mapped_column('id', BigInteger, primary_key=True)
+    user_id: Mapped[int] =    mapped_column('user_id', BigInteger, default=0)
+    url: Mapped[str] =        mapped_column('url', Text, default="")
+    site: Mapped[str] =       mapped_column('site', String(100), default="")
+    ended: Mapped[datetime] = mapped_column('ended', DateTime)
+    orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
+    oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
+
+    @classmethod
+    def from_result( cls, **data ):
+        res = DownloadHistory()
+        res.user_id = data['user_id'] if 'user_id' in data else None
+        res.url = data['url'] if 'url' in data else None
+        res.site = data['site'] if 'site' in data else None
+        res.ended = datetime.now()
+        res.orig_size = data['orig_size'] if 'orig_size' in data else None
+        res.oper_size = data['oper_size'] if 'oper_size' in data else None
+        return res

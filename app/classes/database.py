@@ -241,6 +241,24 @@ class DataBase(object):
 
     #
 
+    async def AddHistory(self, result: dict) -> models.DownloadHistory:
+        session = self._session()
+        try:
+            history = models.DownloadHistory.from_result(**result)
+            session.add(history)
+            session.commit()
+            return history
+        except OperationalError as e:
+            await asyncio.sleep(1)
+            traceback.print_exc()
+            return await self.AddHistory(result)
+        except Exception as e:
+            raise e
+        finally:
+            session.close()
+    
+    #
+
     async def UpdateSiteStat(self, result: dict) -> None:
 
         if result['status'] == variables.DownloaderStep.CANCELLED:
@@ -294,8 +312,8 @@ class DataBase(object):
         current_month_start = current_date.replace(day=1)
         current_month_end = current_month_start - timedelta(days=1) + relativedelta(months=1)
         
-        previous_month_start = current_date.replace(day=1) + relativedelta(months=1)
-        previous_month_end = previous_month_start.replace() - timedelta(days=1) + relativedelta(months=1)
+        # previous_month_start = current_date.replace(day=1) + relativedelta(months=1)
+        # previous_month_end = previous_month_start.replace() - timedelta(days=1) + relativedelta(months=1)
 
         current_year_start = current_date.replace(month=1,day=1)
         current_year_end = current_year_start.replace(year=current_year_start.year+1) - timedelta(days=1)

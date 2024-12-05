@@ -71,7 +71,7 @@ class DownloadsQueue():
             asyncio.create_task( self.__tasks_runner() )
             await asyncio.sleep( 0 )
 
-            # await self.__restore_tasks()
+            await self.__restore_tasks()
 
             asyncio.create_task( self.__stats_flush_runner() )
             await asyncio.sleep( 0 )
@@ -452,6 +452,7 @@ class DownloadsQueue():
 
         await DB.SaveResult( result.model_dump() )
         await DB.DeleteRequest( task_id )
+        await DB.AddHistory( result.model_dump() )
 
         await self.__send_files( result )
 

@@ -209,6 +209,7 @@ class DownloadResult(BaseModel):
     oper_size:  int
     folder:     str
     proxy:      str | None = ""
+    url:        str | None = ''
 
     class Config:
         from_attributes = True

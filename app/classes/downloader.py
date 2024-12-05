@@ -767,7 +767,8 @@ class Downloader():
             orig_size =  self.temp.orig_size,
             oper_size =  self.temp.oper_size,
             folder =     self._folder,
-            proxy =      self.request.proxy
+            proxy =      self.request.proxy,
+            url =        self.request.url
         )
 
         self.results.put( result.model_dump() )
