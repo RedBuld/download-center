@@ -104,4 +104,5 @@ class DownloaderContext():
     arch_folder:   str | os.PathLike
     compression:   Dict[ str, Dict[ str, str | os.PathLike ] ]
     downloader:    DownloaderConfigExec
+    pattern:       str = "{Book.Title}"
     page_delay:    int = 0

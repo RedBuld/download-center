@@ -423,6 +423,19 @@ class DataBase(object):
         )
         previous_year_stats = previous_year_stats_query.all()
 
+        total_stats_query = session.execute(
+            select(
+                models.SiteStat.site,
+                func.sum(models.SiteStat.success),
+                func.sum(models.SiteStat.failure),
+                func.sum(models.SiteStat.orig_size).label("orig_size"),
+                func.sum(models.SiteStat.oper_size).label("oper_size"),
+            )
+            .group_by(models.SiteStat.site)
+            .order_by(desc("orig_size"))
+        )
+        total_stats = total_stats_query.all()
+
         fields = ['site','success','failure','orig_size','oper_size']
 
         session.close()
@@ -444,5 +457,8 @@ class DataBase(object):
             },
             'previous_year': {
                 'elements': [ dict( zip(fields, x) ) for x in previous_year_stats ],
+            },
+            'total': {
+                'elements': [ dict( zip(fields, x) ) for x in total_stats ],
             },
         }

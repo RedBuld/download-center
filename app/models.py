@@ -84,6 +84,9 @@ class DownloadResult(Base):
     folder: Mapped[str] =     mapped_column('folder', Text, default="")
     proxy: Mapped[str] =      mapped_column('proxy', Text, default="")
     url: Mapped[str] =        mapped_column('url', Text, default="")
+    format: Mapped[str] =     mapped_column('format', String(10), default="")
+    start: Mapped[int] =      mapped_column('start', BigInteger, default=0)
+    end: Mapped[int] =        mapped_column('end', BigInteger, default=0)
 
     @property
     def files(self):
@@ -101,9 +104,12 @@ class DownloadHistory(Base):
     user_id: Mapped[int] =    mapped_column('user_id', BigInteger, default=0)
     url: Mapped[str] =        mapped_column('url', Text, default="")
     site: Mapped[str] =       mapped_column('site', String(100), default="")
+    format: Mapped[str] =     mapped_column('format', String(10), default="")
     ended: Mapped[datetime] = mapped_column('ended', DateTime)
     orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
     oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
+    start: Mapped[int] =      mapped_column('start', BigInteger, default=0)
+    end: Mapped[int] =        mapped_column('end', BigInteger, default=0)
 
     @classmethod
     def from_result( cls, **data ):
@@ -111,6 +117,9 @@ class DownloadHistory(Base):
         res.user_id = data['user_id'] if 'user_id' in data else None
         res.url = data['url'] if 'url' in data else None
         res.site = data['site'] if 'site' in data else None
+        res.format = data['format'] if 'format' in data else None
+        res.start = data['start'] if 'start' in data else None
+        res.end = data['end'] if 'end' in data else None
         res.ended = datetime.now()
         res.orig_size = data['orig_size'] if 'orig_size' in data else None
         res.oper_size = data['oper_size'] if 'oper_size' in data else None

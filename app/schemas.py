@@ -66,47 +66,7 @@ class ExportStatsResponse(BaseModel):
     # previous_month: ExportStatsResponseGroup
     current_year: ExportStatsResponseGroup
     previous_year: ExportStatsResponseGroup
-
-    @computed_field
-    @property
-    def total(self) -> Dict[ str, int ]:
-
-        success: int = 0
-        failure: int = 0
-        orig_size: int = 0
-        oper_size: int = 0
-
-        success += self.current_day.total.success
-        failure += self.current_day.total.failure
-        orig_size += self.current_day.total.orig_size
-        oper_size += self.current_day.total.oper_size
-
-        success += self.previous_day.total.success
-        failure += self.previous_day.total.failure
-        orig_size += self.previous_day.total.orig_size
-        oper_size += self.previous_day.total.oper_size
-
-        success += self.current_month.total.success
-        failure += self.current_month.total.failure
-        orig_size += self.current_month.total.orig_size
-        oper_size += self.current_month.total.oper_size
-
-        success += self.current_year.total.success
-        failure += self.current_year.total.failure
-        orig_size += self.current_year.total.orig_size
-        oper_size += self.current_year.total.oper_size
-
-        success += self.previous_year.total.success
-        failure += self.previous_year.total.failure
-        orig_size += self.previous_year.total.orig_size
-        oper_size += self.previous_year.total.oper_size
-
-        return {
-            'success': success,
-            'failure': failure,
-            'orig_size': orig_size,
-            'oper_size': oper_size,
-        }
+    total: ExportStatsResponseGroup
 
     class Config:
         from_attributes = True
@@ -210,6 +170,9 @@ class DownloadResult(BaseModel):
     folder:     str
     proxy:      str | None = ""
     url:        str | None = ''
+    format:     str | None = ''
+    start:      int | None = 0
+    end:        int | None = 0
 
     class Config:
         from_attributes = True

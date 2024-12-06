@@ -71,7 +71,7 @@ class DownloadsQueue():
             asyncio.create_task( self.__tasks_runner() )
             await asyncio.sleep( 0 )
 
-            await self.__restore_tasks()
+            # await self.__restore_tasks()
 
             asyncio.create_task( self.__stats_flush_runner() )
             await asyncio.sleep( 0 )
@@ -390,7 +390,8 @@ class DownloadsQueue():
                         arch_folder = DC.arch_folder,
                         compression = DC.compression,
                         downloader =  DC.downloaders[ QC.sites[ site_name ].downloader ],
-                        page_delay =  QC.sites[ site_name ].page_delay
+                        page_delay =  QC.sites[ site_name ].page_delay,
+                        pattern =     QC.sites[ site_name ].pattern or QC.groups[ group_name ].pattern or '{Book.Title}'
                     )
 
                     running_task.proc = Process(

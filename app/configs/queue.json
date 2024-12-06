@@ -14,28 +14,33 @@
             "per_user": 1,
             "simultaneously": 1,
             "formats": ["pdf"],
-            "delay_per_user": 300
+            "pattern": "{Book.Title}",
+            "delay": 300
         },
         "audiobooks": {
             "per_user": 1,
             "simultaneously": 1,
             "formats": ["mp3"],
-            "delay_per_user": 300
+            "pattern": "{Book.Title}",
+            "delay": 300
         },
         "books": {
             "per_user": 5,
             "simultaneously": 10,
-            "formats": ["fb2","epub"]
+            "formats": ["fb2","epub"],
+            "pattern": "{Book.Title}"
         },
         "manga": {
             "simultaneously": 2,
             "waiting_per_user": 5,
-            "formats": ["cbz"]
+            "formats": ["cbz"],
+            "pattern": "{Book.Title}"
         },
         "ranobe": {
             "simultaneously": 2,
             "waiting_per_user": 5,
-            "formats": ["fb2","epub"]
+            "formats": ["fb2","epub"],
+            "pattern": "{Book.Title}"
         }
     },
     "sites": {
@@ -43,7 +48,8 @@
             "active": true,
             "parameters": ["paging","images","auth"],
             "simultaneously": 5,
-            "allowed_groups": ["books"]
+            "allowed_groups": ["books"],
+            "pattern": "{Author.Name} - {Book.Title}"
         },
 		"bigliba.com": {
             "active": true,
@@ -107,11 +113,6 @@
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books"],
             "use_proxy": true
-        },
-		"desu.me": {
-            "active": true,
-            "parameters": ["paging","images"],
-            "allowed_groups": ["books"]
         },
 		"dreame.com": {
             "active": true,
@@ -193,6 +194,7 @@
             "active": true,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books"],
+            "pattern": "{Author.Name} - {Book.Title}",
             "page_delay": 1
         },
 		"litmir.me": {
@@ -204,15 +206,17 @@
             "active": true,
             "parameters": ["paging","auth"],
             "allowed_groups": ["books"],
+            "pattern": "{Author.Name} - {Book.Title}",
             "simultaneously": 1,
             "page_delay": 1,
-            "delay": 90,
-            "delay_per_user": 95
+            "delay": 120,
+            "delay_per_user": 245
         },
 		"litres.ru": {
             "active": true,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books","audiobooks","pdf"],
+            "pattern": "{Author.Name} - {Book.Title}",
             "delay": 30,
             "page_delay": 1
         },
@@ -251,6 +255,7 @@
             "active": true,
             "parameters": ["images"],
             "allowed_groups": ["books"],
+            "pattern": "{Author.Name} - {Book.Title}",
             "per_user": 1,
             "simultaneously": 1,
             "delay": 60,
@@ -395,6 +400,11 @@
             "parameters": ["paging","force_images"],
             "allowed_groups": ["manga"],
             "simultaneously": 1
+        },
+		"desu.me": {
+            "active": true,
+            "parameters": ["paging","images"],
+            "allowed_groups": ["ranobe","manga"]
         },
         "hentailib.me": {
             "active": true,

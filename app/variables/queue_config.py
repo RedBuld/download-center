@@ -99,6 +99,7 @@ class QueueConfigGroup():
     waiting_per_user:   int = 0
     formats:            List[ str ] = field(default_factory=list)
     downloader:         str = "elib2ebook"
+    pattern:            str = "{Book.Title}"
 
     def __repr__(self):
         return str({
@@ -111,6 +112,7 @@ class QueueConfigGroup():
             'waiting_per_user':   self.waiting_per_user,
             'formats':            self.formats,
             'downloader':         self.downloader,
+            'pattern':            self.pattern,
         })
 
 @dataclass
@@ -118,6 +120,7 @@ class QueueConfigSite():
     parameters:         List[ str ] = field(default_factory=list)
     formats:            List[ str ] = field(default_factory=list)
     downloader:         str = "elib2ebook"
+    pattern:            str = ""
     active:             bool = True
     use_proxy:          bool = False
     simultaneously:     int = 1
@@ -135,6 +138,7 @@ class QueueConfigSite():
             'parameters':         self.parameters,
             'formats':            self.formats,
             'downloader':         self.downloader,
+            'pattern':            self.pattern,
             'active':             self.active,
             'use_proxy':          self.use_proxy,
             'simultaneously':     self.simultaneously,

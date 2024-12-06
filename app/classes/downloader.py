@@ -311,9 +311,9 @@ class Downloader():
                 args.append('--password')
                 args.append(f'{self.request.password}')
 
-        if self.request.site not in ['author.today','litnet.com','litres.ru']:
+        if self.context.pattern:
             args.append('--book-name-pattern')
-            args.append('{Book.Title}')
+            args.append(self.context.pattern)
 
         logger.info('#'*20)
         logger.info('#'*20)
@@ -768,7 +768,10 @@ class Downloader():
             oper_size =  self.temp.oper_size,
             folder =     self._folder,
             proxy =      self.request.proxy,
-            url =        self.request.url
+            url =        self.request.url,
+            format =     self.request.format,
+            start =      self.request.start,
+            end =        self.request.end
         )
 
         self.results.put( result.model_dump() )
