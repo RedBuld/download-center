@@ -8,7 +8,7 @@ from .queue_waiting import *
 from .queue_running import *
 from .queue_sites_groups import *
 
-class WaitingLimitException(Exception):
+class QueueCheckException(Exception):
     pass
 
 @dataclass(frozen=True)

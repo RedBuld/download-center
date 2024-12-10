@@ -50,9 +50,18 @@ class Downloader():
     proc: asyncio.subprocess.Process
     temp: variables.DownloaderTemp
 
+    dbg_log: str = ""
+    dbg_config: str = ""
+
     _folder: str = ""
     _temp: str = ""
     
+    def __dbg__(self) -> str:
+        return ujson.dumps({
+            'request': self.request.dict,
+            'context':  self.context.dict,
+        }, indent=4, ensure_ascii=False )
+
     def __repr__(self) -> str:
         return str({
             'cancelled': self.cancelled,
@@ -105,6 +114,9 @@ class Downloader():
         self.done = False
         self.decoder = 'utf-8'
         self.file_limit = 1_549_000_000
+
+        self.dbg_log = ''
+        self.dbg_config = ''
 
     def __prepare_hashtags( self, raw_hashtags: List[str] = [] ) -> List[str]:
         htm = self.request.hashtags
@@ -274,7 +286,7 @@ class Downloader():
             args.append('--format')
             args.append(f'fb2,json_lite')
 
-        if self.request.proxy:
+        if self.request.proxy and not self.context.flaresolverr:
             args.append('--proxy')
             args.append(f'{self.request.proxy}')
             args.append('--timeout')
@@ -315,6 +327,10 @@ class Downloader():
             args.append('--book-name-pattern')
             args.append(self.context.pattern)
 
+        if self.context.flaresolverr:
+            args.append('--flare')
+            args.append(f'{self.context.flaresolverr}')
+
         logger.info('#'*20)
         logger.info('#'*20)
         logger.info(' '.join([os.path.join(self.context.exec_folder, self.context.downloader.folder, self.context.downloader.exec), *args]) )
@@ -339,6 +355,7 @@ class Downloader():
             new_line = await self.proc.stdout.readline()
             if new_line:
                 _msg = new_line.strip().decode(self.decoder, errors='replace')
+                self.dbg_log += f'\n{_msg}'
                 if _msg.startswith('Жду '):
                     _msg = ''
                 if _msg.startswith('Загружена картинка'):
@@ -355,6 +372,8 @@ class Downloader():
             await asyncio.sleep(0.1)
         
         if self.cancelled:
+            self.dbg_log = ''
+            self.dbg_config = ''
             return self.Stop()
 
         if self.__is_step__(variables.DownloaderStep.CANCELLED):
@@ -363,6 +382,7 @@ class Downloader():
         if self.proc.returncode != 0:
             error = await self.proc.stderr.read()
             if error:
+                self.dbg_log += error.decode('utf-8')
                 raise Exception(error.decode('utf-8'))
             else:
                 raise ProcessLookupError('Process closed unexpectedly')
@@ -371,6 +391,7 @@ class Downloader():
         if len(t) == 0:
             error = ( await self.proc.stdout.read() ).decode('utf-8')
             error += ( await self.proc.stderr.read() ).decode('utf-8')
+            self.dbg_log += error
             if 'с ошибкой' in message and error:
                 if 'Получен бан. Попробуйте позже' in message:
                     raise Exception('Получен бан. Попробуйте позже.')
@@ -752,6 +773,10 @@ class Downloader():
         if self.__is_step__( variables.DownloaderStep.CANCELLED ):
             return
         
+        if not self.__is_step__( variables.DownloaderStep.ERROR ):
+            self.dbg_log = None
+            self.dbg_config = None
+        
         result = schemas.DownloadResult(
             task_id =    self.request.task_id,
             user_id =    self.request.user_id,
@@ -771,7 +796,9 @@ class Downloader():
             url =        self.request.url,
             format =     self.request.format,
             start =      self.request.start,
-            end =        self.request.end
+            end =        self.request.end,
+            dbg_log =    self.dbg_log,
+            dbg_config = self.dbg_config
         )
 
         self.results.put( result.model_dump() )

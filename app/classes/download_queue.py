@@ -71,7 +71,8 @@ class DownloadsQueue():
             asyncio.create_task( self.__tasks_runner() )
             await asyncio.sleep( 0 )
 
-            # await self.__restore_tasks()
+            if GC.restore_tasks:
+                await self.__restore_tasks()
 
             asyncio.create_task( self.__stats_flush_runner() )
             await asyncio.sleep( 0 )
@@ -134,7 +135,7 @@ class DownloadsQueue():
         for format in _formats:
             if format in QC.formats_params:
                 formats[ format ] = QC.formats_params[ format ]
-        
+
         return True, site_config.parameters, formats
 
     async def GetSitesWithAuth(self) -> List[str]:
@@ -155,30 +156,33 @@ class DownloadsQueue():
 
             site_config = QC.sites[ site_name ] if site_name in QC.sites else None
 
-            if site_config and QC.proxies.has() and not request.proxy and request.task_id is None:
-                request.proxy = await QC.proxies.getProxy( site_name )
+            if site_config.force_proxy:
+                if not request.proxy:
+                    if request.task_id is None and QC.proxies.has():
+                        request.proxy = await QC.proxies.getProxy( site_name )
+                    else:
+                        raise Exception("Сайт недоступен без прокси")
             
             can_be_added = await self.stats.GroupCanAdd( group_name )
             if not can_be_added and raise_on_limit:
-                raise variables.WaitingLimitException('Максимум ожидающих загрузок для группы')
+                raise variables.QueueCheckException('Максимум ожидающих загрузок для группы')
 
             can_be_added = await self.stats.SiteCanAdd( site_name )
             if not can_be_added and raise_on_limit:
-                raise variables.WaitingLimitException('Максимум ожидающих загрузок для сайта')
+                raise variables.QueueCheckException('Максимум ожидающих загрузок для сайта')
 
             can_be_added = await self.stats.UserCanAdd( request.user_id, site_name, group_name )
             if not can_be_added and raise_on_limit:
-                raise variables.WaitingLimitException('Максимум ожидающих загрузок для сайта/группы')
-
+                raise variables.QueueCheckException('Максимум ожидающих загрузок для сайта/группы')
             
             waiting_duplicate = await self.waiting.CheckDuplicate( group_name, request )
             running_duplicate = await self.running.CheckDuplicate( request )
 
             if waiting_duplicate:
-                raise variables.WaitingLimitException('Такая загрузка уже добавлена в очередь')
+                raise variables.QueueCheckException('Такая загрузка уже добавлена в очередь')
 
             if running_duplicate:
-                raise variables.WaitingLimitException('Такая загрузка уже загружается')
+                raise variables.QueueCheckException('Такая загрузка уже загружается')
 
             if request.task_id is None: # Maybe restoring task
                 try:
@@ -383,15 +387,24 @@ class DownloadsQueue():
 
                 if running_task:
 
+                    pattern = waiting_task.request.filename or QC.sites[ site_name ].pattern or QC.groups[ group_name ].pattern or '{Book.Title}'
+                    # pattern = pattern.translate(
+                    #     str.maketrans({
+                    #         '[': '\\[',
+                    #         ']': '\\]',
+                    #     })
+                    # )
+
                     context = variables.DownloaderContext(
-                        save_folder = DC.save_folder,
-                        exec_folder = DC.exec_folder,
-                        temp_folder = DC.temp_folder,
-                        arch_folder = DC.arch_folder,
-                        compression = DC.compression,
-                        downloader =  DC.downloaders[ QC.sites[ site_name ].downloader ],
-                        page_delay =  QC.sites[ site_name ].page_delay,
-                        pattern =     QC.sites[ site_name ].pattern or QC.groups[ group_name ].pattern or '{Book.Title}'
+                        save_folder =  DC.save_folder,
+                        exec_folder =  DC.exec_folder,
+                        temp_folder =  DC.temp_folder,
+                        arch_folder =  DC.arch_folder,
+                        compression =  DC.compression,
+                        downloader =   DC.downloaders[ QC.sites[ site_name ].downloader ],
+                        page_delay =   QC.sites[ site_name ].page_delay,
+                        pattern =      pattern,
+                        flaresolverr = GC.flaresolverr if QC.sites[ site_name ].use_flare else ''
                     )
 
                     running_task.proc = Process(
@@ -451,7 +464,7 @@ class DownloadsQueue():
         except:
             traceback.print_exc()
 
-        await DB.SaveResult( result.model_dump() )
+        await DB.SaveResult( result.model_dump(exclude=['dbg_log','dbg_config']) )
         await DB.DeleteRequest( task_id )
         await DB.AddHistory( result.model_dump() )
 

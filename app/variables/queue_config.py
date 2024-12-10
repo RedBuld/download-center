@@ -122,7 +122,8 @@ class QueueConfigSite():
     downloader:         str = "elib2ebook"
     pattern:            str = ""
     active:             bool = True
-    use_proxy:          bool = False
+    force_proxy:        bool = False
+    use_flare:          bool = False
     simultaneously:     int = 1
     max_simultaneously: int = 0
     per_user:           int = 1
@@ -140,7 +141,8 @@ class QueueConfigSite():
             'downloader':         self.downloader,
             'pattern':            self.pattern,
             'active':             self.active,
-            'use_proxy':          self.use_proxy,
+            'force_proxy':        self.force_proxy,
+            'use_flare':          self.use_flare,
             'simultaneously':     self.simultaneously,
             'max_simultaneously': self.max_simultaneously,
             'per_user':           self.per_user,

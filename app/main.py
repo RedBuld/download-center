@@ -150,7 +150,7 @@ async def download_new( request: schemas.DownloadRequest ):
             status_code = 200 if resp.status else 500,
             content =     resp.message
         )
-    except variables.WaitingLimitException as e:
+    except variables.QueueCheckException as e:
         return JSONResponse(
             status_code = 500,
             content =     str(e)

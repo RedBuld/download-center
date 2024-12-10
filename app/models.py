@@ -41,10 +41,12 @@ class DownloadRequest(Base):
     images: Mapped[bool] =    mapped_column('images', Boolean, default=True)
     cover: Mapped[bool] =     mapped_column('cover', Boolean, default=False)
     hashtags: Mapped[str] =   mapped_column('hashtags', String(5), default="no")
+    filename: Mapped[str] =   mapped_column('filename', Text, nullable=True)
     proxy: Mapped[str] =      mapped_column('proxy', Text, default="")
 
-    def __repr__(self) -> str:
-        return str({
+    @property
+    def dict(self) -> dict:
+        return {
             'task_id':    self.task_id,
             'user_id':    self.user_id,
             'bot_id':     self.bot_id,
@@ -62,7 +64,10 @@ class DownloadRequest(Base):
             'cover':      self.cover,
             'hashtags':   self.hashtags,
             'proxy':      self.proxy,
-        })
+        }
+
+    def __repr__(self) -> str:
+        return str(self.dict)
 
 class DownloadResult(Base):
     __tablename__ = "download_results"
@@ -110,6 +115,8 @@ class DownloadHistory(Base):
     oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
     start: Mapped[int] =      mapped_column('start', BigInteger, default=0)
     end: Mapped[int] =        mapped_column('end', BigInteger, default=0)
+    dbg_log: Mapped[str] =    mapped_column('dbg_log', Text, nullable=True)
+    dbg_config: Mapped[str] = mapped_column('dbg_config', Text, nullable=True)
 
     @classmethod
     def from_result( cls, **data ):
@@ -123,4 +130,6 @@ class DownloadHistory(Base):
         res.ended = datetime.now()
         res.orig_size = data['orig_size'] if 'orig_size' in data else None
         res.oper_size = data['oper_size'] if 'oper_size' in data else None
+        res.dbg_log = data['dbg_log'] if 'dbg_log' in data else None
+        res.dbg_config = data['dbg_config'] if 'dbg_config' in data else None
         return res

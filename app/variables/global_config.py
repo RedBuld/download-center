@@ -6,10 +6,12 @@ from typing import Dict, Any
 
 
 class GlobalConfig():
-    bot_host:     str
-    queue_host:   str
-    redis_server: str
-    inited:       bool = False
+    bot_host:      str
+    queue_host:    str
+    flaresolverr:  str
+    redis_server:  str
+    restore_tasks: bool = True
+    inited:        bool = False
 
     def __init__( self ):
         config_path = []
@@ -52,6 +54,16 @@ class GlobalConfig():
             self.redis_server = config['redis_server']
         else:
             raise Exception('No redis_server defined')
+
+        if 'flaresolverr' in config:
+            self.flaresolverr = config['flaresolverr']
+        else:
+            self.flaresolverr = ''
+
+        if 'restore_tasks' in config:
+            self.restore_tasks = config['restore_tasks']
+        else:
+            self.restore_tasks = True
 
     async def updateConfig( self ):
         self.__init__()

@@ -1,5 +1,5 @@
 {
-    "exec_folder": "/srv/download-center/app/exec",
+    "exec_folder": "/srv/github_export/download-center/app/exec",
     "save_folder": "/mnt/bot_temp/v3results",
     "temp_folder": "/mnt/bot_temp/v3temp",
     "arch_folder": "/mnt/v3archiving",

@@ -104,5 +104,23 @@ class DownloaderContext():
     arch_folder:   str | os.PathLike
     compression:   Dict[ str, Dict[ str, str | os.PathLike ] ]
     downloader:    DownloaderConfigExec
+    flaresolverr:  str = ""
     pattern:       str = "{Book.Title}"
     page_delay:    int = 0
+
+    @property
+    def dict(self) -> dict:
+        return {
+            'save_folder': self.save_folder,
+            'exec_folder': self.exec_folder,
+            'temp_folder': self.temp_folder,
+            'arch_folder': self.arch_folder,
+            'compression': self.compression,
+            'downloader': self.downloader,
+            'flaresolverr': self.flaresolverr,
+            'pattern': self.pattern,
+            'page_delay': self.page_delay,
+        }
+
+    def __repr__(self):
+        return str(self.dict)

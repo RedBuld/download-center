@@ -25,7 +25,8 @@ class DownloadRequest(BaseModel):
     images:     bool | None = False
     cover:      bool | None = False
     proxy:      str | None = ""
-    hashtags:   str = "no"
+    hashtags:   str | None = ""
+    filename:   str | None = None
 
     class Config:
         from_attributes = True
@@ -173,6 +174,8 @@ class DownloadResult(BaseModel):
     format:     str | None = ''
     start:      int | None = 0
     end:        int | None = 0
+    dbg_log:    str | None = None
+    dbg_config: str | None = None
 
     class Config:
         from_attributes = True
