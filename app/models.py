@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 import json
+from typing import Self
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncAttrs
 from sqlalchemy import BigInteger, Boolean, String, Text, UniqueConstraint, Date, DateTime
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import relationship
+
+from app import dto
 
 class Base(AsyncAttrs, DeclarativeBase):
     pass
@@ -44,8 +48,7 @@ class DownloadRequest(Base):
     filename: Mapped[str] =   mapped_column('filename', Text, nullable=True)
     proxy: Mapped[str] =      mapped_column('proxy', Text, default="")
 
-    @property
-    def dict(self) -> dict:
+    def __export__(self) -> dict:
         return {
             'task_id':    self.task_id,
             'user_id':    self.user_id,
@@ -67,7 +70,36 @@ class DownloadRequest(Base):
         }
 
     def __repr__(self) -> str:
-        return str(self.dict)
+        return str(self.__export__())
+    
+    @classmethod
+    def from_dto( cls, dto: dto.DownloadRequest ) -> Self:
+        request = cls()
+        
+        request.task_id    = dto.task_id
+        request.user_id    = dto.user_id
+        request.bot_id     = dto.bot_id
+        request.web_id     = dto.web_id
+        request.chat_id    = dto.chat_id
+        request.message_id = dto.message_id
+        request.site       = dto.site
+        request.url        = dto.url
+        request.start      = dto.start
+        request.end        = dto.end
+        request.format     = dto.format
+        request.login      = dto.login
+        request.password   = dto.password
+        request.images     = dto.images
+        request.cover      = dto.cover
+        request.hashtags   = dto.hashtags
+        request.filename   = dto.filename
+        request.proxy      = dto.proxy
+
+        return request
+    
+    def to_dto( self ) -> dto.DownloadRequest:
+        return dto.DownloadRequest.model_validate( self, from_attributes=True )
+
 
 class DownloadResult(Base):
     __tablename__ = "download_results"
@@ -100,6 +132,37 @@ class DownloadResult(Base):
     @files.setter
     def files(self, value):
         self._files = json.dumps(value)
+    
+    def _from_dto( self, dto: dto.DownloadResult ) -> Self:
+        self.task_id    = dto.task_id
+        self.user_id    = dto.user_id
+        self.bot_id     = dto.bot_id
+        self.web_id     = dto.web_id
+        self.chat_id    = dto.chat_id
+        self.message_id = dto.message_id
+        self.status     = dto.status
+        self.site       = dto.site
+        self.text       = dto.text
+        self.cover      = dto.cover
+        self.files      = dto.files
+        self.orig_size  = dto.orig_size
+        self.oper_size  = dto.oper_size
+        self.folder     = dto.folder
+        self.proxy      = dto.proxy
+        self.url        = dto.url
+        self.format     = dto.format
+        self.start      = dto.start
+        self.end        = dto.end
+
+    @classmethod
+    def from_dto( cls, dto: dto.DownloadResult ) -> Self:
+        result = cls()
+        result._from_dto( dto )
+
+        return result
+    
+    def to_dto( self ) -> dto.DownloadResult:
+        return dto.DownloadResult.model_validate( self, from_attributes=True )
 
 
 class DownloadHistory(Base):
@@ -110,26 +173,26 @@ class DownloadHistory(Base):
     url: Mapped[str] =        mapped_column('url', Text, default="")
     site: Mapped[str] =       mapped_column('site', String(100), default="")
     format: Mapped[str] =     mapped_column('format', String(10), default="")
-    ended: Mapped[datetime] = mapped_column('ended', DateTime)
     orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
     oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
     start: Mapped[int] =      mapped_column('start', BigInteger, default=0)
     end: Mapped[int] =        mapped_column('end', BigInteger, default=0)
     dbg_log: Mapped[str] =    mapped_column('dbg_log', Text, nullable=True)
     dbg_config: Mapped[str] = mapped_column('dbg_config', Text, nullable=True)
+    ended: Mapped[datetime] = mapped_column('ended', DateTime)
 
     @classmethod
-    def from_result( cls, **data ):
-        res = DownloadHistory()
-        res.user_id = data['user_id'] if 'user_id' in data else None
-        res.url = data['url'] if 'url' in data else None
-        res.site = data['site'] if 'site' in data else None
-        res.format = data['format'] if 'format' in data else None
-        res.start = data['start'] if 'start' in data else None
-        res.end = data['end'] if 'end' in data else None
-        res.ended = datetime.now()
-        res.orig_size = data['orig_size'] if 'orig_size' in data else None
-        res.oper_size = data['oper_size'] if 'oper_size' in data else None
-        res.dbg_log = data['dbg_log'] if 'dbg_log' in data else None
-        res.dbg_config = data['dbg_config'] if 'dbg_config' in data else None
-        return res
+    def from_dto( cls, dto: dto.DownloadResult ) -> Self:
+        history = cls()
+        history.user_id    = dto.user_id
+        history.url        = dto.url
+        history.site       = dto.site
+        history.format     = dto.format
+        history.start      = dto.start
+        history.end        = dto.end
+        history.orig_size  = dto.orig_size
+        history.oper_size  = dto.oper_size
+        history.dbg_log    = dto.dbg_log
+        history.dbg_config = dto.dbg_config
+        history.ended      = datetime.now()
+        return history

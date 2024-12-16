@@ -4,9 +4,7 @@ import aiohttp
 import ujson
 import traceback
 import logging
-from typing import List, Dict, Any
-from app import variables
-from app import schemas
+from app import dto
 from app.configs import GC
 
 logger = logging.getLogger(__name__)
@@ -15,37 +13,37 @@ class Interconnect():
 
     async def Send(
         self,
-        data: schemas.DownloadResult | schemas.DownloadStatus
+        data: dto.DownloadResult | dto.DownloadStatus
     ) -> bool:
         
-        _type = str(type(data).__name__)
+        _type = str( type(data).__name__ )
         
         if _type == 'DownloadStatus':
-            return await self._status(data)
+            return await self._status( data )
         elif _type == 'DownloadResult':
-            return await self._result(data)
+            return await self._result( data )
         else:
             return False
 
     async def _status(
         self,
-        status: schemas.DownloadStatus
+        status: dto.DownloadStatus
     ) -> bool:
         if status.bot_id:
-            return await self._bot_status(status)
+            return await self._bot_status( status )
         elif status.web_id:
-            return await self._web_status(status)
+            return await self._web_status( status )
         else:
             return False
 
     async def _result(
         self,
-        data: schemas.DownloadResult
+        data: dto.DownloadResult
     ) -> bool:
         if data.bot_id:
-            return await self._bot_result(data)
+            return await self._bot_result( data )
         elif data.web_id:
-            return await self._web_result(data)
+            return await self._web_result( data )
         else:
             return False
     
@@ -53,14 +51,14 @@ class Interconnect():
 
     async def _web_status(
         self,
-        data: schemas.DownloadStatus
+        data: dto.DownloadStatus
     ) -> bool:
         status = False
         return status
 
     async def _bot_status(
         self,
-        data: schemas.DownloadStatus
+        data: dto.DownloadStatus
     ) -> bool:
         status = False
 
@@ -86,14 +84,14 @@ class Interconnect():
 
     async def _web_result(
         self,
-        data: schemas.DownloadResult
+        data: dto.DownloadResult
     ) -> bool:
         status = False
         return status
 
     async def _bot_result(
         self,
-        data: schemas.DownloadResult
+        data: dto.DownloadResult
     ) -> bool:
         status = False
 

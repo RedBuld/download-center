@@ -4,23 +4,25 @@ from typing import List, Dict, Any
 from datetime import datetime, timedelta
 
 class QueueSitesGroups():
-    map: Dict[ str, List[str] ] = {}
+    map: Dict[ str, List[ str ] ] = {}
 
     def __init__(self) -> None:
         self.map = {}
     
-    async def GetActiveSites( self ) -> List[str]:
+    async def GetActiveSites( self ) -> List[ str ]:
         return list( self.map.keys() )
 
+    # Get all site groups
     async def GetSiteGroups(
         self,
         site_name: str
-    ) -> List[str]:
+    ) -> List[ str ]:
         ok: bool = site_name in self.map
         if ok:
             return self.map[ site_name ]
         return []
 
+    # Get site group by site and selected format
     async def GetSiteGroup(
         self,
         site_name: str,
@@ -35,11 +37,20 @@ class QueueSitesGroups():
                     return group_name
         return ""
     
-    async def SiteInit( self, site_name: str, site_groups: List[ str ] ) -> bool:
+    # Add site to mapping
+    async def SiteInit(
+        self,
+        site_name: str,
+        site_groups: List[ str ]
+    ) -> bool:
         self.map[ site_name ] = site_groups
         return True
 
-    async def SiteDestroy( self, site_name: str ) -> bool:
+    # Remove site from mapping
+    async def SiteDestroy(
+        self,
+        site_name: str
+    ) -> bool:
         ok: bool = site_name in self.map
         if ok:
             del self.map[ site_name ]

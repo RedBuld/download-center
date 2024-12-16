@@ -11,6 +11,9 @@ from .queue_sites_groups import *
 class QueueCheckException(Exception):
     pass
 
+class DownloaderException(Exception):
+    pass
+
 @dataclass(frozen=True)
 class DownloaderStep():
 	CANCELLED = 99
@@ -34,7 +37,6 @@ class DownloaderTemp():
     chapters_end: int       = 0
     first_chapter_name: str = ''
     last_chapter_name: str  = ''
-    chapters_end: int       = 0
     orig_size: int          = 0
     oper_size: int          = 0
     author: str             = ""
@@ -55,3 +57,21 @@ class DownloaderTemp():
         self.oper_size          = 0
         self.author             = ""
         self.name               = ""
+    
+    def __export__( self) -> Dict:
+        return {
+            'text' :               self.text,
+            'cover' :              self.cover,
+            'source_files' :       self.source_files,
+            'result_files' :       self.result_files,
+            'chapters_total' :     self.chapters_total,
+            'chapters_valid' :     self.chapters_valid,
+            'chapters_start' :     self.chapters_start,
+            'chapters_end' :       self.chapters_end,
+            'first_chapter_name' : self.first_chapter_name,
+            'last_chapter_name' :  self.last_chapter_name,
+            'orig_size' :          self.orig_size,
+            'oper_size' :          self.oper_size,
+            'author' :             self.author,
+            'name' :               self.name,
+        }

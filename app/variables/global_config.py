@@ -13,23 +13,23 @@ class GlobalConfig():
     restore_tasks: bool = True
     inited:        bool = False
 
-    def __init__( self ):
+    def __init__( self ) -> None:
         config_path = []
 
         cwd = os.getcwd()
 
-        config_path.append(cwd)
+        config_path.append( cwd )
 
-        if not cwd.endswith('app/') and not cwd.endswith('app'):
-            config_path.append('app')
+        if not cwd.endswith( 'app/' ) and not cwd.endswith( 'app' ):
+            config_path.append( 'app' )
 
         config_file = os.path.join( *config_path, 'configs', 'global.json' )
 
         config: Dict[str,Any] = {}
 
         try:
-            if not os.path.exists(config_file):
-                raise FileNotFoundError(config_file)
+            if not os.path.exists( config_file ):
+                raise FileNotFoundError( config_file )
 
             with open( config_file, 'r', encoding='utf-8' ) as _config_file:
                 _config = _config_file.read()
@@ -65,5 +65,5 @@ class GlobalConfig():
         else:
             self.restore_tasks = True
 
-    async def updateConfig( self ):
+    async def UpdateConfig( self ) -> None:
         self.__init__()

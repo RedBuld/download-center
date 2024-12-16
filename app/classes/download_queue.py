@@ -4,77 +4,74 @@ import asyncio
 import traceback
 import logging
 import shutil
-from datetime import datetime, timedelta
-from ctypes import c_bool
 from multiprocessing import Process, Queue
 from typing import List, Dict, Any
-from app import variables, schemas
+from app import dto, variables
 from app.objects import DB, RD, IC
 from app.configs import GC, DC, QC
 from app import variables
-from app import models
-from app.variables import QueueStats, QueueWaiting, QueueWaitingTask, QueueRunning, QueueSitesGroups
+from app.variables import QueueWaitingTask
 from app.classes.downloader import start_downloader
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger( __name__ )
 
 class DownloadsQueue():
     # base
-    checkInterval:   float = 1.0
     stop_queue:      bool = False
     stopped_results: bool = False
     stopped_tasks:   bool = False
     
     # maps
-    active:          List[ str ] = []
-    auths:           List[ str ] = []
+    sites_active:    List[ str ] = []
+    sites_with_auth: List[ str ] = []
     groups:          List[ str ] = []
-    site_to_groups:  QueueSitesGroups
+    site_to_groups:  variables.QueueSitesGroups
     
     # catchers
     statuses:        Queue = None
     results:         Queue = None
     
-    # realtime stats
-    stats:           QueueStats
-    # tasks
-    waiting:         QueueWaiting
-    running:         QueueRunning
+    stats:           variables.QueueStats
+    waiting:         variables.QueueWaiting
+    running:         variables.QueueRunning
 
     def __init__( self, **kwargs ) -> None:
-        self.groups =          []
-        self.auths =           []
-        self.stats =           QueueStats()
-        self.waiting =         QueueWaiting()
-        self.running =         QueueRunning()
-        self.site_to_groups =  QueueSitesGroups()
-        self.stop_queue =      False
+        self.stop_queue      = False
         self.stopped_results = False
-        self.stopped_tasks =   False
-        self.statuses =        Queue()
-        self.results =         Queue()
+        self.stopped_tasks   = False
+        self.sites_active    = []
+        self.sites_with_auth = []
+        self.groups          = []
+        self.site_to_groups  = variables.QueueSitesGroups()
+        self.statuses        = Queue()
+        self.results         = Queue()
+        self.stats           = variables.QueueStats()
+        self.waiting         = variables.QueueWaiting()
+        self.running         = variables.QueueRunning()
 
     def __repr__( self ) -> str:
         return '<DownloadsQueue>'
-    
+
+
     ### PUBLIC METHODS
-    
+
+
     async def Start(self) -> None:
         self.stop_queue = False
         self.stopped_results = False
         self.stopped_tasks = False
         self.tasks_pause = False
         try:
-            asyncio.create_task( self.__results_runner() )
+            asyncio.create_task( self.resultsRunner() )
             await asyncio.sleep( 0 )
 
-            asyncio.create_task( self.__tasks_runner() )
+            asyncio.create_task( self.tasksRunner() )
             await asyncio.sleep( 0 )
 
             if GC.restore_tasks:
-                await self.__restore_tasks()
+                await self.restoreTasks()
 
-            asyncio.create_task( self.__stats_flush_runner() )
+            asyncio.create_task( self.flushRunner() )
             await asyncio.sleep( 0 )
 
         except KeyboardInterrupt:
@@ -82,24 +79,27 @@ class DownloadsQueue():
         except:
             traceback.print_exc()
 
-    async def Stop(self) -> None:
+
+    async def Stop( self ) -> None:
         self.stop_queue = True
         while not self.stopped_results and not self.stopped_tasks:
-            await asyncio.sleep(0.1)
+            await asyncio.sleep( 0.1 )
         self.statuses.close()
         self.results.close()
-    
-    async def Save(self) -> None:
+
+
+    async def Save( self ) -> None:
         await self.stats.Save()
 
-    async def UpdateConfig(self) -> None:
 
-        await self.__setup_groups(QC.groups)
-        await self.__setup_sites(QC.sites)
-    
-    async def ExportQueue(self) -> Dict[str,Any]:
+    async def UpdateConfig( self ) -> None:
+        await self.setupGroups()
+        await self.setupSites()
+
+
+    async def ExportQueue( self ) -> Dict[ str, Any ]:
         result = {
-            "stats": await self.stats.Export(),
+            "stats":   await self.stats.Export(),
             "running": await self.running.Export(),
             "waiting": await self.waiting.Export(),
         }
@@ -108,109 +108,134 @@ class DownloadsQueue():
 
     #
 
-    async def CheckSite(self, site_name: str) -> tuple[bool, list[str], Dict[str,list[str]]]:
-        if site_name not in self.active:
-            return False, [], {}
+    async def CheckSite(
+        self,
+        site_name: str
+    ) -> dto.SiteCheckResponse:
+        response = dto.SiteCheckResponse()
+
+        if site_name not in self.sites_active:
+            return response
 
         groups = await self.site_to_groups.GetSiteGroups( site_name )
         if len(groups) == 0:
-            return False, [], {}
+            return response
+
+        response.allowed = True
 
         site_config = QC.sites[ site_name ] if site_name in QC.sites else None
         if site_config is None:
-            return True, [], {}
+            return response
+
+        response.parameters = site_config.parameters
 
         _formats = site_config.formats
         if not _formats:
-            _formats = []
             for group_name in groups:
-                group_config = QC.groups[ group_name ] if group_name in QC.groups else None
-                if not group_config:
-                    return True, [], {}
+                group_config = None
+                if group_name in QC.groups:
+                    group_config = QC.groups[ group_name ]
+                else:
+                    continue
                 for format in group_config.formats:
                     if format not in _formats:
-                        _formats.append(format)
+                        _formats.append( format )
         
         formats = {}
         for format in _formats:
             if format in QC.formats_params:
                 formats[ format ] = QC.formats_params[ format ]
 
-        return True, site_config.parameters, formats
+        response.formats = formats
 
-    async def GetSitesWithAuth(self) -> List[str]:
-        return self.auths
+        return response
 
-    async def GetSitesActive(self) -> List[str]:
-        return [x for x in self.active if x != 'audiolitres.ru']
+
+    async def GetSitesWithAuth( self ) -> dto.SiteListResponse:
+        response = dto.SiteListResponse(
+            sites = self.sites_with_auth
+        )
+        return response
+
+
+    async def GetSitesActive( self ) -> dto.SiteListResponse:
+        response = dto.SiteListResponse(
+            sites = self.sites_active
+        )
+        return response
     
     #
 
-    async def AddTask(self, request: schemas.DownloadRequest, raise_on_limit: bool = True) -> schemas.DownloadResponse:
+    async def AddTask(
+        self,
+        request: dto.DownloadRequest,
+        raise_on_limit: bool = True
+    ) -> dto.DownloadResponse:
         logger.info( 'DQ: received request:' + str( request ) )
+        response = dto.DownloadResponse()
 
         site_name = request.site
         
         group_name = await self.site_to_groups.GetSiteGroup( site_name, request.format )
-        if group_name:
+        if not group_name:
+            raise Exception( f'Не найдена конфигурация группы для сайта {site_name}' )
 
-            site_config = QC.sites[ site_name ] if site_name in QC.sites else None
+        site_config = QC.sites[ site_name ] if site_name in QC.sites else None
+        if not site_config:
+            raise Exception( f'Не найдена конфигурация для сайта {site_name}' )
 
-            if site_config.force_proxy:
-                if not request.proxy:
-                    if request.task_id is None and QC.proxies.has():
-                        request.proxy = await QC.proxies.getProxy( site_name )
-                    else:
-                        raise Exception("Сайт недоступен без прокси")
-            
-            can_be_added = await self.stats.GroupCanAdd( group_name )
-            if not can_be_added and raise_on_limit:
-                raise variables.QueueCheckException('Максимум ожидающих загрузок для группы')
-
-            can_be_added = await self.stats.SiteCanAdd( site_name )
-            if not can_be_added and raise_on_limit:
-                raise variables.QueueCheckException('Максимум ожидающих загрузок для сайта')
-
-            can_be_added = await self.stats.UserCanAdd( request.user_id, site_name, group_name )
-            if not can_be_added and raise_on_limit:
-                raise variables.QueueCheckException('Максимум ожидающих загрузок для сайта/группы')
-            
-            waiting_duplicate = await self.waiting.CheckDuplicate( group_name, request )
-            running_duplicate = await self.running.CheckDuplicate( request )
-
-            if waiting_duplicate:
-                raise variables.QueueCheckException('Такая загрузка уже добавлена в очередь')
-
-            if running_duplicate:
-                raise variables.QueueCheckException('Такая загрузка уже загружается')
-
-            if request.task_id is None: # Maybe restoring task
-                try:
-                    request = await asyncio.wait_for( DB.SaveRequest( request.model_dump() ), timeout=5.0 )
-                except ( asyncio.TimeoutError, asyncio.CancelledError ):
-                    return schemas.DownloadResponse(
-                        status =  False,
-                        message = "База данных недоступна или перегружена"
-                    )
-
-            waiting_task = QueueWaitingTask(
-                task_id = request.task_id,
-                group =   group_name,
-                request = request
-            )
-
-            await self.stats.AddWaiting( request.user_id, site_name, group_name )
-            await self.waiting.GroupAddTask( group_name, waiting_task )
+        if site_config.force_proxy:
+            if not request.proxy:
+                if QC.proxies.Has():
+                    request.proxy = await QC.proxies.GetInstance( site_name )
+                else:
+                    raise Exception( 'Сайт недоступен без прокси' )
         
-        return schemas.DownloadResponse(
-            status =  True,
-            message = str(request.task_id)
-        )
+        can_be_added = await self.stats.GroupCanAdd( group_name )
+        if not can_be_added and raise_on_limit:
+            raise variables.QueueCheckException( 'Максимум ожидающих загрузок для группы' )
 
-    async def CancelTask(self, cancel_request: schemas.DownloadCancelRequest) -> bool | schemas.SiteListResponse:
+        can_be_added = await self.stats.SiteCanAdd( site_name )
+        if not can_be_added and raise_on_limit:
+            raise variables.QueueCheckException( 'Максимум ожидающих загрузок для сайта' )
+
+        can_be_added = await self.stats.UserCanAdd( request.user_id, site_name, group_name )
+        if not can_be_added and raise_on_limit:
+            raise variables.QueueCheckException( 'Максимум ожидающих загрузок для сайта/группы' )
+        
+        waiting_duplicate = await self.waiting.CheckDuplicate( group_name, request )
+        if waiting_duplicate:
+            raise variables.QueueCheckException( 'Такая загрузка уже добавлена в очередь' )
+
+        running_duplicate = await self.running.CheckDuplicate( request )
+        if running_duplicate:
+            raise variables.QueueCheckException( 'Такая загрузка уже загружается' )
+
+        if request.task_id is None: # Maybe restoring task
+            try:
+                stored_request = await asyncio.wait_for( DB.SaveDownloadRequest( request ), timeout=5.0 )
+                request = stored_request.to_dto()
+            except:
+                raise Exception( "База данных недоступна или перегружена" )
+
+        await self.stats.AddWaiting( request.user_id, site_name, group_name )
+        await self.waiting.AddTask( group_name, request )
+        
+        response.status = True
+        response.message = str( request.task_id )
+
+        return response
+
+
+    async def CancelTask(
+        self,
+        cancel_request: dto.DownloadCancelRequest
+    ) -> dto.DownloadCancelResponse | None:
         logger.info( 'DQ: cancel task:' + str( cancel_request.model_dump() ) )
 
         try:
+            request = await DB.GetDownloadRequest( cancel_request.task_id )
+
             waiting_task = await self.waiting.RemoveTask( cancel_request.task_id )
             if waiting_task != False:
                 await self.stats.RemoveWaiting( waiting_task.user_id, waiting_task.site, waiting_task.group )
@@ -219,45 +244,55 @@ class DownloadsQueue():
             if running_task != False:
                 await self.stats.RemoveRun( running_task.user_id, running_task.site, running_task.group, running_task.request.proxy )
 
-            await DB.DeleteRequest( cancel_request.task_id )
+            await DB.DeleteDownloadRequest( cancel_request.task_id )
 
-            if waiting_task != False:
-                return schemas.DownloadCancelResponse.model_validate(waiting_task.request, from_attributes=True)
-            if running_task != False:
-                return schemas.DownloadCancelResponse.model_validate(running_task.request, from_attributes=True)
-            return False
+            if waiting_task != None:
+                return dto.DownloadCancelResponse.model_validate( waiting_task.request, from_attributes=True )
+            if running_task != None:
+                return dto.DownloadCancelResponse.model_validate( running_task.request, from_attributes=True )
+            if request != None:
+                return dto.DownloadCancelResponse.model_validate( request.to_dto(), from_attributes=True )
+            return None
         except:
             traceback.print_exc()
-            return False
-    
-    async def ClearFolder(self, clear_request: schemas.DownloadClearRequest) -> None:
+            return None
+
+
+    async def ClearFolder(
+        self,
+        clear_request: dto.DownloadClearRequest
+    ) -> None:
         if clear_request.folder:
-            if os.path.isdir(clear_request.folder):
-                shutil.rmtree( clear_request.folder )
+            try:
+                if os.path.isdir( clear_request.folder ):
+                    shutil.rmtree( clear_request.folder )
+            except:
+                pass
 
 
     ### PRIVATE METHODS
     
-    async def __restore_tasks(self) -> None:
-        logger.info( 'DQ: __restore_tasks started' )
+    async def restoreTasks( self ) -> None:
+        logger.info( 'DQ: restoreTasks started' )
 
-        requests = await DB.GetAllRequests()
-        for request in requests:
-            logger.info( 'DQ: __restore_tasks request: ' + str( request ) )
-            asyncio.create_task( self.AddTask( schemas.DownloadRequest.model_validate(request), False ) )
-            await asyncio.sleep( 0 )
-
-        results = await DB.GetAllResults()
+        results = await DB.GetAllDownloadResults()
         for result in results:
-            logger.info( 'DQ: __restore_tasks result: ' + str( result ) )
-            asyncio.create_task( self.__send_files( schemas.DownloadResult.model_validate(result) ) )
-            await asyncio.sleep( 0 )
+            logger.info( 'DQ: restoreTasks result: ' + str( result ) )
+            asyncio.create_task( self.sendFiles( result.to_dto() ) )
+            await asyncio.sleep( 0.1 )
 
-        logger.info( 'DQ: __restore_tasks done' )
+        requests = await DB.GetAllDownloadRequests()
+        for request in requests:
+            logger.info( 'DQ: restoreTasks request: ' + str( request ) )
+            asyncio.create_task( self.AddTask( request.to_dto(), False ) )
+            await asyncio.sleep( 0.1 )
+
+        logger.info( 'DQ: restoreTasks done' )
     
     #
 
-    async def __stats_flush_runner(self) -> None:
+    async def flushRunner( self ) -> None:
+        logger.info( 'DQ: flushRunner started' )
         while True:
             await asyncio.sleep(300)
             try:
@@ -268,16 +303,17 @@ class DownloadsQueue():
                 traceback.print_exc()
             if self.stop_queue:
                 break
+        logger.info( 'DQ: flushRunner started' )
 
-    async def __results_runner(self) -> None:
-        logger.info( 'DQ: __results_runner started' )
+    async def resultsRunner( self ) -> None:
+        logger.info( 'DQ: resultsRunner started' )
         while True:
-            # logger.info('__results_runner tick')
+            await asyncio.sleep(1)
             try:
                 while not self.results.empty():
                     json_result = self.results.get()
 
-                    await self.__task_done( schemas.DownloadResult( **json_result ) )
+                    await self.taskDone( dto.DownloadResult( **json_result ) )
 
                     if self.stop_queue:
                         break
@@ -285,7 +321,7 @@ class DownloadsQueue():
                 while not self.statuses.empty():
                     json_status = self.statuses.get()
 
-                    await self.__task_status( schemas.DownloadStatus( **json_status ) )
+                    await self.taskStatus( dto.DownloadStatus( **json_status ) )
 
                     if self.stop_queue:
                         break
@@ -294,16 +330,13 @@ class DownloadsQueue():
                 traceback.print_exc()
             if self.stop_queue:
                 break
-            await asyncio.sleep(1)
         self.stopped_results = True
-
-        logger.info('DQ: __results_runner stopped')
+        logger.info('DQ: resultsRunner stopped')
         
-    async def __tasks_runner(self) -> None:
-        logger.info('DQ: __tasks_runner started')
-        i = 0
+    async def tasksRunner( self ) -> None:
+        logger.info('DQ: tasksRunner started')
         while True:
-            # logger.info('__tasks_runner tick')
+            await asyncio.sleep(1)
             try:
                 if self.tasks_pause:
                     await asyncio.sleep(1)
@@ -320,59 +353,48 @@ class DownloadsQueue():
 
                             # preventive skip group
                             if not await self.stats.GroupCanStart( group_name ):
+                                logger.info( f'DQ: group {group_name} can\'t run' )
                                 continue
-                                # logger.info('DQ: group tasks: '+str(tasks))
-                            # if i == 0:
-                            #     logger.info(f'DQ: group {group_name} can run')
 
                             # go over waiting tasks
                             for task in tasks:
 
                                 if not await self.stats.GroupCanStart( group_name, task.request.proxy ):
-                                    # logger.info('DQ: group can\'t run')
                                     continue
 
                                 # check site
                                 site_name = task.request.site
                                 if not await self.stats.SiteCanStart( site_name, task.request.proxy ):
-                                    # logger.info('DQ: site can\'t run')
+                                    logger.info( f'DQ: site {site_name} can\'t run')
                                     continue
-                                # if i == 0:
-                                #     logger.info(f'DQ: site {site_name} can run')
 
                                 # check user
                                 user_id = task.request.user_id
                                 if not await self.stats.UserCanStart( user_id, site_name, group_name, task.request.proxy ):
-                                    # if i == 0:
-                                    #     logger.info(f'DQ: user {user_id} can\'t run')
+                                    logger.info( f'DQ: user {user_id} can\'t run' )
                                     continue
-                                # if i == 0:
-                                #     logger.info(f'DQ: user {user_id} can run')
 
                                 task_id = task.task_id
-                                await self.waiting.RemoveTask( task_id )
-
-                                await self.__task_start( task )
+                                if await self.taskRun( task ):
+                                    await self.waiting.RemoveTask( task_id )
                     except:
                         traceback.print_exc()
             except:
                 traceback.print_exc()
-            finally:
-                if i == 0:
-                    i = 1
-                else:
-                    i = 0
 
             if self.stop_queue:
                 break
-            await asyncio.sleep(1)
+
         self.stopped_tasks = True
-        logger.info('DQ: __tasks_runner stopped')
+        logger.info('DQ: tasksRunner stopped')
 
     ###
 
-    async def __task_start(self, waiting_task: QueueWaitingTask) -> None:
-        logger.info('DQ: __task_start')
+    async def taskRun(
+        self,
+        waiting_task: QueueWaitingTask
+    ) -> bool:
+        logger.info('DQ: taskRun')
 
         try:
             task_id = waiting_task.task_id
@@ -382,56 +404,60 @@ class DownloadsQueue():
             group_name = await self.site_to_groups.GetSiteGroup( site_name, format )
 
             if group_name:
-                
-                running_task = await self.running.AddTask( task_id, group_name, waiting_task.request )
-
+                running_task = await self.running.AddTask( group_name, waiting_task.request )
                 if running_task:
 
-                    pattern = waiting_task.request.filename or QC.sites[ site_name ].pattern or QC.groups[ group_name ].pattern or '{Book.Title}'
-                    # pattern = pattern.translate(
-                    #     str.maketrans({
-                    #         '[': '\\[',
-                    #         ']': '\\]',
-                    #     })
-                    # )
+                    downloader   = DC.downloaders[ QC.sites[ site_name ].downloader or QC.groups[ group_name ].downloader ]
+                    pattern      = waiting_task.request.filename or QC.sites[ site_name ].pattern or QC.groups[ group_name ].pattern or '{Book.Title}'
+                    page_delay   = QC.sites[ site_name ].page_delay or QC.groups[ group_name ].page_delay or 0
+                    flaresolverr = ''
+                    if QC.sites[ site_name ].use_flare:
+                        if waiting_task.request.proxy and QC.flaresolverrs.Has():
+                            flaresolverr = await QC.flaresolverrs.GetInstance( waiting_task.request.proxy )
+                        else:
+                            flaresolverr = await GC.flaresolverr
 
                     context = variables.DownloaderContext(
-                        save_folder =  DC.save_folder,
-                        exec_folder =  DC.exec_folder,
-                        temp_folder =  DC.temp_folder,
-                        arch_folder =  DC.arch_folder,
-                        compression =  DC.compression,
-                        downloader =   DC.downloaders[ QC.sites[ site_name ].downloader ],
-                        page_delay =   QC.sites[ site_name ].page_delay,
-                        pattern =      pattern,
-                        flaresolverr = GC.flaresolverr if QC.sites[ site_name ].use_flare else ''
+                        save_folder  = DC.save_folder,
+                        exec_folder  = DC.exec_folder,
+                        temp_folder  = DC.temp_folder,
+                        arch_folder  = DC.arch_folder,
+                        compression  = DC.compression,
+                        downloader   = downloader,
+                        page_delay   = page_delay,
+                        pattern      = pattern,
+                        flaresolverr = flaresolverr
                     )
 
                     running_task.proc = Process(
-                        target=start_downloader,
-                        name="Downloader #"+str(waiting_task.task_id),
-                        kwargs={
-                            'request':     waiting_task.request,
-                            'context':     context,
-                            'statuses':    self.statuses,
-                            'results':     self.results,
+                        target = start_downloader,
+                        name   = f"Downloader #{waiting_task.task_id}",
+                        kwargs = {
+                            'request':  waiting_task.request,
+                            'context':  context,
+                            'statuses': self.statuses,
+                            'results':  self.results,
                         },
-                        daemon=True
+                        daemon = True
                     )
                     running_task.proc.start()
 
                     await self.stats.AddRun( user_id, site_name, group_name, waiting_task.request.proxy )
                     await self.stats.RemoveWaiting( user_id, site_name, group_name )
 
-                    logger.info(f'DQ: started task {task_id}:' + str(running_task.proc) )
+                    logger.info( f'DQ: started task {task_id}: ' + str(running_task.proc) )
+
+                    return True
         except:
             traceback.print_exc()
+            return False
     
     #
 
-    async def __task_status(self, status: schemas.DownloadStatus) -> None:
-        # logger.info('DQ: __task_status')
-
+    async def taskStatus(
+        self,
+        status: dto.DownloadStatus
+    ) -> None:
         if not await self.running.Exists( status.task_id ):
             return
         
@@ -441,8 +467,11 @@ class DownloadsQueue():
 
     #
 
-    async def __task_done(self, result: schemas.DownloadResult) -> None:
-        logger.info('DQ: __task_done')
+    async def taskDone(
+        self,
+        result: dto.DownloadResult
+    ) -> None:
+        logger.info('DQ: taskDone')
 
         task_id = result.task_id
 
@@ -464,13 +493,15 @@ class DownloadsQueue():
         except:
             traceback.print_exc()
 
-        await DB.SaveResult( result.model_dump(exclude=['dbg_log','dbg_config']) )
-        await DB.DeleteRequest( task_id )
-        await DB.AddHistory( result.model_dump() )
+        await DB.SaveDownloadResult( result )
+        await DB.DeleteDownloadRequest( task_id )
+        await DB.AddDownloadHistory( result )
 
-        await self.__send_files( result )
+        asyncio.create_task( self.sendFiles( result ) )
+        await asyncio.sleep( 0 )
 
-    async def __send_files(self, result: schemas.DownloadResult) -> None:
+
+    async def sendFiles(self, result: dto.DownloadResult) -> None:
 
         if result.text == '':
             result.text = 'нет описания'
@@ -478,74 +509,78 @@ class DownloadsQueue():
         sended = await IC.Send(result)
 
         if sended:
-            await DB.DeleteResult( result.task_id )
+            await DB.DeleteDownloadResult( result.task_id )
             logger.info( 'deleted result, task #' + str( result.task_id ) )
 
         try:
-            await DB.UpdateSiteStat( result.model_dump() )
+            await DB.UpdateSiteStat( result )
         except:
             traceback.print_exc()
 
     #
 
-    async def __setup_groups(self, groups: Dict[str, variables.QueueConfigGroup]) -> None:
-        active_groups: List[str] = []
+    async def setupGroups( self ) -> None:
+        groups = QC.groups
+
+        active_groups: List[ str ] = []
         waiting_active_groups = await self.waiting.GetActiveGroups()
         stats_active_groups = await self.stats.GetActiveGroups()
 
         for group_name in groups:            
-            await self.stats.GroupInit(group_name)
-
-            await self.waiting.GroupInit(group_name)
+            await self.stats.GroupInit( group_name )
+            await self.waiting.GroupInit( group_name )
 
             if group_name not in active_groups:
-                active_groups.append(group_name)
+                active_groups.append( group_name )
 
         # clean abandoned stats groups
         for group_name in stats_active_groups:
             if group_name not in active_groups:
-                await self.stats.GroupDestroy(group_name)
+                if await self.stats.GroupNotBusy( group_name ):
+                    await self.stats.GroupDestroy( group_name )
 
         # clean abandoned waiting queue groups
         for group_name in waiting_active_groups:
             if group_name not in active_groups:
-                await self.waiting.GroupDestroy(group_name)
+                if await self.stats.GroupNotBusy( group_name ):
+                    await self.waiting.GroupDestroy( group_name )
 
         self.groups = active_groups
-        pass
 
     #
 
-    async def __setup_sites(self, sites: Dict[str, variables.QueueConfigSite]) -> None:
-        sites_with_auth: List[str] = []
-        active_sites: List[str] = []
+    async def setupSites( self ) -> None:
+        sites = QC.sites
+
+        sites_with_auth: List[ str ] = []
+        sites_active: List[ str ] = []
 
         stg_active_sites = await self.site_to_groups.GetActiveSites()
         stats_active_sites = await self.stats.GetActiveSites()
 
         for site_name in sites:
+            site_config = sites[ site_name ]
 
-            site_config = sites[site_name]
+            await self.stats.SiteInit( site_name )
+            await self.site_to_groups.SiteInit( site_name, site_config.allowed_groups )
 
             if 'auth' in site_config.parameters:
                 sites_with_auth.append( site_name )
 
-            await self.stats.SiteInit( site_name )
+            if site_name not in sites_active:
+                sites_active.append( site_name )
 
-            if site_config.active:
-                await self.site_to_groups.SiteInit( site_name, site_config.allowed_groups )
-                if site_name not in active_sites:
-                    active_sites.append( site_name )
-
-        self.auths = sites_with_auth
-        self.active = active_sites
+        self.sites_with_auth = sites_with_auth
+        self.sites_active = sites_active
 
         # clean abandoned stats groups
         for site_name in stats_active_sites:
-            if site_name not in active_sites:
-                await self.stats.SiteDestroy( site_name )
+            if site_name not in sites_active:
+                if await self.stats.SiteNotBusy( site_name ):
+                    await self.stats.SiteDestroy( site_name )
 
         # clean abandoned stats groups
         for site_name in stg_active_sites:
-            if site_name not in active_sites:
-                await self.site_to_groups.SiteDestroy( site_name )
+            if site_name not in sites_active:
+                if await self.stats.SiteNotBusy( site_name ):
+                    await self.site_to_groups.SiteDestroy( site_name )

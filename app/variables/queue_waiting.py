@@ -1,15 +1,14 @@
 from __future__ import annotations
-from typing import List, Dict, Any
-from app import models
-from app import schemas
+from typing import List, Dict
+from app import dto
 
 class QueueWaiting():
     groups: Dict[ str, QueueWaitingGroup ] = {}
 
     def __init__(
-            self,
-            groups: Dict[ str, QueueWaitingGroup ] = {},
-        ) -> None:
+        self,
+        groups: Dict[ str, QueueWaitingGroup ] = {},
+    ) -> None:
         self.groups = groups
 
     def __repr__( self ) -> str:
@@ -17,21 +16,26 @@ class QueueWaiting():
     
     #
 
-    async def Export( self ) -> List[Dict]:
+    async def Export( self ) -> List[ Dict ]:
         result = []
         for group_name in self.groups.keys():
             result.append({
                 "name": group_name,
-                "tasks": await self.groups[group_name].GetTasks()
+                "tasks": await self.groups[ group_name ].GetTasks()
             })
         return result
 
-    async def GetActiveGroups( self ) -> List[str]:
+    async def GetActiveGroups( self ) -> List[ str ]:
         return list( self.groups.keys() )
     
     #
 
-    async def CheckDuplicate( self, group_name: str, request: schemas.DownloadRequest ) -> bool:
+    # Check that download with same config does not exists
+    async def CheckDuplicate(
+        self,
+        group_name: str,
+        request:    dto.DownloadRequest
+    ) -> bool:
         for _, task in self.groups[ group_name ].tasks.items():
             if task.request.user_id == request.user_id and task.request.url == request.url \
                 and \
@@ -43,46 +47,51 @@ class QueueWaiting():
 
     #
 
+    # Add group to queue
     async def GroupInit(
-            self,
-            group_name: str
-        ) -> bool:
+        self,
+        group_name: str
+    ) -> bool:
         if group_name not in self.groups:
             self.groups[ group_name ] = QueueWaitingGroup()
         return True
 
+    # Remove group from queue
     async def GroupDestroy(
-            self,
-            group_name: str
-        ) -> bool:
+        self,
+        group_name: str
+    ) -> bool:
         ok: bool = group_name in self.groups
         if ok:
             del self.groups[ group_name ]
         return True
 
+    # Check group exists in queue
     async def GroupExists(
-            self,
-            group_name: str
-        ) -> bool:
+        self,
+        group_name: str
+    ) -> bool:
         ok: bool = group_name in self.groups
         return ok
     
     #
     
+    # Get waiting tasks from group
     async def GroupGetTasks(
-            self,
-            group_name: str
-        ) -> List[ QueueWaitingTask ] | None:
+        self,
+        group_name: str
+    ) -> List[ QueueWaitingTask ] | None:
         ok: bool = group_name in self.groups
         if ok:
             return await self.groups[ group_name ].GetTasks()
         return None
     
+    # Get waiting task from group
     async def GroupGetTask(
-            self,
-            group_name: str,
-            task_id: int
-        ) -> QueueWaitingTask | None:
+        self,
+        group_name: str,
+        task_id:    int
+    ) -> QueueWaitingTask | None:
         ok: bool = group_name in self.groups
         if ok:
             task_ok: bool = task_id in self.groups[ group_name ].tasks
@@ -90,27 +99,31 @@ class QueueWaiting():
                 task: QueueWaitingTask = self.groups[ group_name ].tasks[ task_id ]
                 return task
         return None
+    
+    #
 
-    async def GroupAddTask(
-            self,
-            group_name: str,
-            task: QueueWaitingTask
-        ) -> bool:
+    # Add task to queue
+    async def AddTask(
+        self,
+        group_name: str,
+        request:    dto.DownloadRequest
+    ) -> QueueWaitingTask | None:
         ok: bool = group_name in self.groups
         if ok:
-            return await self.groups[ group_name ].AddTask( task )
-        return False
-    
+            return await self.groups[ group_name ].AddTask( group_name, request )
+        return None
+
+    # Get waiting task from group
     async def RemoveTask(
-            self,
-            task_id: int
-        ) -> QueueWaitingTask | bool:
+        self,
+        task_id: int
+    ) -> QueueWaitingTask | None:
         for group_name in self.groups.keys():
-            if task_id in self.groups[ group_name ].tasks:
-                task: QueueWaitingTask = self.groups[ group_name ].tasks[ task_id ]
-                await self.groups[ group_name ].RemoveTask(task_id)
+            task = await self.groups[ group_name ].GetTask( task_id )
+            if task is not None:
+                await self.groups[ group_name ].RemoveTask( task_id )
                 return task
-        return False
+        return None
 
 class QueueWaitingGroup():
     tasks: Dict[ int, QueueWaitingTask ] = {}
@@ -121,22 +134,47 @@ class QueueWaitingGroup():
     def __repr__( self ) -> str:
         return '<QueueWaitingGroup>'
     
-    async def GetTasks( self ) -> List[QueueWaitingTask]:
+    # Return list of tasks
+    async def GetTasks( self ) -> List[ QueueWaitingTask ]:
         return [ task for _, task in self.tasks.items() ]
-
-    async def AddTask(
-            self,
-            task: QueueWaitingTask
-        ) -> bool:
-        if task.task_id not in self.tasks:
-            self.tasks[ task.task_id ] = task
-        return True
     
+    # Get task from group
+    async def GetTask(
+        self,
+        task_id: int
+    ) -> QueueWaitingTask | None:
+        ok: bool = task_id in self.tasks
+        if ok:
+            task: QueueWaitingTask = self.tasks[ task_id ]
+            return task
+        return None
+
+    # Add task to group
+    async def AddTask(
+        self,
+        group:   str,
+        request: dto.DownloadRequest
+    ) -> bool:
+        if request.task_id not in self.tasks:
+            task = QueueWaitingTask(
+                group   = group,
+                request = request
+            )
+            self.tasks[ task.task_id ] = task
+        
+        ok: bool = request.task_id in self.tasks
+        if ok:
+            task: QueueWaitingTask = self.tasks[ request.task_id ]
+            return task
+        return None
+    
+    # Remove task from group
     async def RemoveTask(
-            self,
-            task_id: int
-        ) -> bool:
-        if task_id in self.tasks:
+        self,
+        task_id: int
+    ) -> bool:
+        ok: bool = task_id in self.tasks
+        if ok:
             del self.tasks[ task_id ]
         return True
 
@@ -145,26 +183,26 @@ class QueueWaitingTask():
     user_id: int = 0
     site:    str = ""
     group:   str = ""
-    site:    str = ""
     url:     str = ""
-    request: models.DownloadRequest
+    request: dto.DownloadRequest
 
     def __init__(
-            self,
-            task_id: int,
-            group: str,
-            request: models.DownloadRequest,
-        ) -> None:
-        self.task_id = task_id
-        self.group = group
+        self,
+        group:   str,
+        request: dto.DownloadRequest,
+    ) -> None:
+        self.task_id = request.task_id
         self.user_id = request.user_id
-        self.site = request.site
-        self.url = request.url
+        self.site    = request.site
+        self.group   = group
+        self.url     = request.url
         self.request = request
 
     def __repr__( self ) -> str:
         return '<QueueWaitingTask '+str( {
             'task_id': self.task_id,
             'request': self.request,
-            'site': self.site,
+            'site':    self.site,
+            'url':     self.url,
+            'group':   self.group,
         } )+'>'

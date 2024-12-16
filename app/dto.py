@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import os
 from pydantic import BaseModel, Field, computed_field
-from app import variables, models
-from typing import Callable, Optional, Type, Any, List, Dict
+from typing import Any, List, Dict
 
 class SiteCheckRequest(BaseModel):
     site: str
@@ -31,6 +30,27 @@ class DownloadRequest(BaseModel):
     class Config:
         from_attributes = True
 
+    def __export__(self) -> Dict:
+        return {
+            'task_id':    self.task_id,
+            'user_id':    self.user_id,
+            'bot_id':     self.bot_id,
+            'web_id':     self.web_id,
+            'chat_id':    self.chat_id,
+            'message_id': self.message_id,
+            'site':       self.site,
+            'url':        self.url,
+            'start':      self.start,
+            'end':        self.end,
+            'format':     self.format,
+            'login':      self.login,
+            'password':   self.password,
+            'images':     self.images,
+            'cover':      self.cover,
+            'hashtags':   self.hashtags,
+            'proxy':      self.proxy,
+        }
+
 class DownloadCancelRequest(BaseModel):
     task_id:    int
 
@@ -41,9 +61,9 @@ class DownloadClearRequest(BaseModel):
 #
 
 class SiteCheckResponse(BaseModel):
-    allowed: bool
-    parameters: List[ str ]
-    formats: Dict[ str, List[ str ] ]
+    allowed:    bool = False
+    parameters: List[ str ] = []
+    formats:    Dict[ str, List[ str ] ] = {}
 
 class SiteListResponse(BaseModel):
     sites: List[ str ]
@@ -146,7 +166,7 @@ class ExportQueueWaitingTask(BaseModel):
 
 class ExportQueueRunningTask(BaseModel):
     task_id: int
-    last_status: str
+    status: str
     request: DownloadRequest
 
     class Config:

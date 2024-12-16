@@ -12,146 +12,227 @@ import shutil
 import subprocess
 from multiprocessing import Queue
 from typing import Dict, List, Any
-from app import models
-from app import schemas
+from app import dto
 from app import variables
 
 logger = logging.getLogger('downloader-process')
 
 def start_downloader(
-        request:      models.DownloadRequest,
-        context:      variables.DownloaderContext = None,
-        statuses:     Queue = None,
-        results:      Queue = None
+        request:  dto.DownloadRequest,
+        context:  variables.DownloaderContext,
+        statuses: Queue,
+        results:  Queue
     ):
     _downloader = Downloader(
-        request =      request,
-        context =      context,
-        statuses =     statuses,
-        results =      results
+        request  = request,
+        context  = context,
+        statuses = statuses,
+        results  = results
     )
-    _downloader.Start()
+    _downloader.StartDownload()
 
 class Downloader():
-    request:      models.DownloadRequest
-    context:      variables.DownloaderContext = None,
-    cancelled:    bool = False
-    statuses:     Queue = None
-    results:      Queue = None
+    request:  dto.DownloadRequest
+    context:  variables.DownloaderContext
+    statuses: Queue
+    results:  Queue
+    proc:     asyncio.subprocess.Process
+    temp:     variables.DownloaderTemp
 
-    done: bool = False
+    done:      bool = False
+    cancelled: bool = False
 
-    step: int = variables.DownloaderStep.IDLE
+    step:      int = variables.DownloaderStep.IDLE
     prev_step: int = variables.DownloaderStep.IDLE
     
-    message: str = ""
-    prev_message: str = ""
+    message:      str = ''
+    prev_message: str = ''
 
-    proc: asyncio.subprocess.Process
-    temp: variables.DownloaderTemp
+    dbg_log:    str = ''
+    dbg_config: str = ''
 
-    dbg_log: str = ""
-    dbg_config: str = ""
+    results_folder:  str = ''
+    temp_folder:     str = ''
+    archives_folder: str = ''
 
-    _folder: str = ""
-    _temp: str = ""
+    decoder    = 'utf-8'
+    file_limit = 1_549_000_000
     
-    def __dbg__(self) -> str:
-        return ujson.dumps({
-            'request': self.request.dict,
-            'context':  self.context.dict,
+    def __debug_config__( self ) -> str:
+        return ujson.dumps( {
+            'request': self.request.__export__(),
+            'context': self.context.__export__(),
+            'temp':    self.temp.__export__(),
         }, indent=4, ensure_ascii=False )
 
-    def __repr__(self) -> str:
-        return str({
-            'cancelled': self.cancelled,
-            'request': self.request,
-            'context':  self.context,
-            'step': self.step,
-            'prev_step': self.prev_step,
-            'message': self.message,
-            'prev_message': self.prev_message,
-            'proc': self.proc,
-            'temp': self.temp
-        })
+    def __repr__( self ) -> str:
+        return str( {
+            'request':         self.request,
+            'context':         self.context,
+            'proc':            self.proc,
+            'temp':            self.temp,
+            'done':            self.done,
+            'cancelled':       self.cancelled,
+            'step':            self.step,
+            'prev_step':       self.prev_step,
+            'message':         self.message,
+            'prev_message':    self.prev_message,
+            'results_folder':  self.results_folder,
+            'temp_folder':     self.temp_folder,
+            'archives_folder': self.archives_folder
+        } )
 
-    def __init__( self,
-        request:      models.DownloadRequest,
-        context:      variables.DownloaderContext = None,
-        statuses:     Queue = None,
-        results:      Queue = None,
-    ):
-        self.request =   request
-        self.context =   context
-        self.statuses =  statuses
-        self.results =   results
-        self.cancelled = False
-        self.__reset()
+    def __init__(
+        self,
+        request:  dto.DownloadRequest,
+        context:  variables.DownloaderContext = None,
+        statuses: Queue = None,
+        results:  Queue = None,
+    ) -> None:
+        self.request   = request
+        self.context   = context
+        self.statuses  = statuses
+        self.results   = results
+        
+        self.done       = False
+        self.cancelled  = False
 
-        signal.signal(signal.SIGINT, self.on_cancel)
-        signal.signal(signal.SIGTERM, self.on_cancel)
+        self.step         = variables.DownloaderStep.IDLE
+        self.prev_step    = variables.DownloaderStep.IDLE
 
-    def __is_step__(self, check_step: int) -> bool:
-        return self.step == check_step
+        self.message      = ''
+        self.prev_message = ''
 
-    def on_cancel( self, *args, **kwargs ):
-        self.cancelled = True
-        if self.proc and self.proc.returncode is None:
-            self.proc.terminate()
+        self.dbg_log    = ''
+        self.dbg_config = ''
 
-    def __reset(self) -> None:
-        self.step = variables.DownloaderStep.IDLE
-        self.prev_step = variables.DownloaderStep.IDLE
-        self.message = ""
-        self.prev_message = ""
-
-        self._folder = os.path.join( self.context.save_folder, str(self.request.task_id) )
-        self._temp = os.path.join( self.context.temp_folder, str(self.request.task_id) )
+        self.results_folder = os.path.join( self.context.save_folder, str( self.request.task_id ) )
+        self.temp_folder    = os.path.join( self.context.temp_folder, str( self.request.task_id ) )
 
         self.proc = None
         self.temp = variables.DownloaderTemp()
 
-        self.done = False
-        self.decoder = 'utf-8'
+        self.decoder    = 'utf-8'
         self.file_limit = 1_549_000_000
 
-        self.dbg_log = ''
-        self.dbg_config = ''
+        signal.signal( signal.SIGINT, self.CancelDownload )
+        signal.signal( signal.SIGTERM, self.CancelDownload )
 
-    def __prepare_hashtags( self, raw_hashtags: List[str] = [] ) -> List[str]:
-        htm = self.request.hashtags
-        if htm == 'bf':
-            return self.__prepare_hashtags_bf(raw_hashtags)
-        elif htm == 'gf':
-            return self.__prepare_hashtags_gf(raw_hashtags)
+    def __is_step__(
+        self,
+        check_step: int
+    ) -> bool:
+        return self.step == check_step
+
+    ###
+
+    def StartDownload( self ) -> None:
+        # 
+        logging.basicConfig(
+            format='%(levelname)s: %(name)s[%(process)d] %(asctime)s - %(message)s',
+            level=logging.INFO
+        )
+        logger.info( 'Downloader: Start' )
+        self.SetStep( variables.DownloaderStep.WAIT )
+        self.SetMessage( 'Загрузка начата' )
+        asyncio.get_event_loop().run_until_complete( self.Run() )
+
+
+    def CancelDownload( self, *args, **kwargs ):
+        self.cancelled = True
+        
+    ###
+
+    async def Run( self ) -> None:
+        asyncio.create_task( self.statusRunner() )
+        await asyncio.sleep( 0 )
+
+        self.SetStep( variables.DownloaderStep.INIT )
+
+        try:
+            await self.DownloadStep() # can raise error
+            await self.ProcessStep() # can't raise error
+        except Exception as e:
+            traceback.print_exc()
+            self.done = True
+            await self.ProcessError( e )
+        finally:
+            self.done = True
+            await self.SendResult()
+
+
+    def Stop( self ) -> None:
+        if self.__is_step__( variables.DownloaderStep.CANCELLED ):
+            return
+
+        logger.info( 'Downloader: stop' )
+
+        self.done = True
+
+        self.SetStep( variables.DownloaderStep.CANCELLED )
+        self.SetMessage( 'Загрузка отменена' )
+        if self.proc and self.proc.returncode is None:
+            self.proc.terminate()
+
+    #
+
+    async def statusRunner( self ) -> None:
+        while not self.done:
+            await self.SendStatus()
+            await asyncio.sleep(5)
+
+    #
+
+    def ProcessHashtags(
+        self,
+        raw_hashtags: List[ str ] = []
+    ) -> List[ str ]:
+        selected_hashtags = self.request.hashtags
+
+        if selected_hashtags == 'bf':
+            return self.ProcessHashtags_bf( raw_hashtags )
+        elif selected_hashtags == 'gf':
+            return self.ProcessHashtags_gf( raw_hashtags )
         else:
             return []
 
-    def __prepare_hashtags_bf( self, raw_hashtags: List[str] = [] ) -> List[str]:
+
+    def ProcessHashtags_bf(
+        self,
+        raw_hashtags: List[ str ] = []
+    ) -> List[ str ]:
         hashtags = []
         for hashtag in raw_hashtags:
-            hashtag = re.sub(r'[^A-Za-z0-9А-Яа-яёЁ]', ' ', hashtag)
-            hashtag = re.sub(r'\s+', '_', hashtag.strip())
+            hashtag = re.sub( r'[^A-Za-z0-9А-Яа-яёЁ]', ' ', hashtag )
+            hashtag = re.sub( r'\s+', '_', hashtag.strip() )
             hashtags.append( f'#{hashtag}' )
         return hashtags
 
-    def __prepare_hashtags_gf( self, raw_hashtags: List[str] = [] ) -> List[str]:
+
+    def ProcessHashtags_gf(
+        self,
+        raw_hashtags: List[ str ] = []
+    ) -> List[ str ]:
         hashtags = []
         for hashtag in raw_hashtags:
-            hashtag = re.sub(r'[^A-Za-z0-9А-Яа-яёЁ]', '', hashtag).lower()
+            hashtag = re.sub( r'[^A-Za-z0-9А-Яа-яёЁ]', '', hashtag ).lower()
             hashtags.append( f'#{hashtag}' )
         return hashtags
-    
-    def __prepare_chapters( self ) -> str:
-        _ret = self.temp.last_chapter_name
+
+
+    def PrepareChapters( self ) -> str:
+        _return = self.temp.last_chapter_name
         suffix = ''
         
         _total = self.temp.chapters_total
         _valid = self.temp.chapters_valid
+
         if self.temp.chapters_valid < self.temp.chapters_total:
             _total = self.temp.chapters_valid
+
         if _valid > 1:
-            _ret = f'По: "{_ret}"'
+            _return = f'По: "{_return}"'
+
         if _total > 0:
             _start = int(self.request.start)
             _end = int(self.request.end)
@@ -162,14 +243,18 @@ class Downloader():
                 if _start > 0:
                     _end = _start + _total
                     suffix = f'{_start} - {_end}'
-            else:
-                suffix = f'1 - {_total}'
+            # else:
+            #     suffix = f'1 - {_total}'
         
         if self.temp.chapters_valid < self.temp.chapters_total:
             if suffix:
                 suffix += f' / {self.temp.chapters_total}'
+            else:
+                suffix += f'{_total} / {self.temp.chapters_total}'
+
         if suffix:
             suffix = f' [{suffix}]'
+
         # if self.temp.first_chapter_name and self.temp.last_chapter_name:
         #     if self.request.start or self.request.end:
         #         chapters = f'Глав {self.temp.chapters_valid} из {self.temp.chapters_total}, с "{self.temp.first_chapter_name}" по "{self.temp.last_chapter_name}"'
@@ -177,9 +262,14 @@ class Downloader():
         #         chapters = f'Глав {self.temp.chapters_valid} из {self.temp.chapters_total}, по "{self.temp.last_chapter_name}"'
         # else:
         #     chapters = f'Глав {self.temp.chapters_valid} из {self.temp.chapters_total}'
-        return f'{_ret}{suffix}'
 
-    def __escape_err( self, text: str ) -> str:
+        return f'{_return}{suffix}'
+
+
+    def EscapeErrorText(
+        self,
+        text: str
+    ) -> str:
         text = text.translate(
             str.maketrans(
                 {
@@ -194,300 +284,276 @@ class Downloader():
         return text
 
 
-    def __set_step(self, new_step: int) -> None:
+    async def ProcessError(
+        self,
+        err: Exception
+    ) -> None:
+    
+        if self.__is_step__( variables.DownloaderStep.CANCELLED ):
+            return
+
+        self.SetStep( variables.DownloaderStep.ERROR )
+
+        self.temp.text = 'Произошла ошибка: '
+
+        if 'с ошибкой' in self.dbg_log:
+            if 'Получен бан. Попробуйте позже' in self.dbg_log:
+                self.temp.text += 'Получен бан. Попробуйте позже.'
+        else:
+            self.temp.text += '\n<pre>\n'+ self.EscapeErrorText( str( err ) )[ :2000 ] +'\n</pre>'
+
+
+    def SetStep(
+        self,
+        new_step: int
+    ) -> None:
         self.prev_step = self.step
         self.step = new_step
 
 
-    def __set_message(self, new_message: str) -> None:
+    def SetMessage(
+        self,
+        new_message: str
+    ) -> None:
         self.prev_message = self.message
         self.message = new_message
 
-    ###
 
-    def Start(self) -> None:
-        self.__reset()
-        # 
-        logging.basicConfig(
-            format='\x1b[32m%(levelname)s\x1b[0m:     %(name)s[%(process)d] %(asctime)s - %(message)s',
-            level=logging.INFO
-        )
-        logger.info('Downloader: Start')
-        self.__set_step(variables.DownloaderStep.WAIT)
-        self.__set_message('Загрузка начата')
-        asyncio.get_event_loop().run_until_complete( self.start() )
-
-
-    def Stop(self) -> None:
-        if self.__is_step__(variables.DownloaderStep.CANCELLED):
-            return
-
-        self.done = True
-
-        logger.info('Downloader: Stop')
-        self.__set_step(variables.DownloaderStep.CANCELLED)
-        self.__set_message('Загрузка отменена')
-        if self.proc and self.proc.returncode is None:
-            self.proc.terminate()
-        
-    ###
-
-    async def start(self) -> None:
-        asyncio.create_task( self.__status_runner() )
-        await asyncio.sleep(0)
-
-        self.__set_step(variables.DownloaderStep.INIT)
-
+    async def DownloadStep( self ) -> None:
         try:
-            await self.download() # can raise error
-            await self.process() # can't raise error
-        except Exception as e:
-            traceback.print_exc()
-            self.done = True
-            await self.__error(e)
-        finally:
-            self.done = True
-            await self.__result()
-
-    async def __status_runner(self) -> None:
-        while not self.done:
-            await self.__status()
-            await asyncio.sleep(5)
-
-    async def download(self) -> None:
-        try:
-            shutil.rmtree( self._folder )
+            shutil.rmtree( self.results_folder )
         except:
             pass
-        os.makedirs(self._folder, exist_ok=True)
+        os.makedirs(self.results_folder, exist_ok=True)
 
         args: list[str] = []
 
-        args.append('--save')
-        args.append(f'{self._folder}')
+        args.append( '--save' )
+        args.append( f'{self.results_folder}' )
 
-        args.append('--temp')
-        args.append(f'{self._temp}')
+        args.append( '--temp' )
+        args.append( f'{self.temp_folder}' )
+
+        args.append( '--timeout' )
+        args.append( '600' )
 
         if self.request.url:
-            args.append('--url')
-            args.append(f'{self.request.url}')
+            args.append( '--url' )
+            args.append( f'{self.request.url}' )
 
         if self.request.format:
-            args.append('--format')
+            args.append( '--format' )
             if self.request.format != 'mp3':
-                args.append(f'{self.request.format},json_lite')
+                args.append( f'{self.request.format},json_lite' )
             else:
-                args.append('json_lite')
-                args.append('--additional')
-                args.append('--additional-types')
-                args.append('audio')
+                args.append( 'json_lite' )
+                args.append( '--additional' )
+                args.append( '--additional-types' )
+                args.append( 'audio' )
         else:
-            args.append('--format')
-            args.append(f'fb2,json_lite')
+            raise Exception( 'Не выбран формат' )
 
-        if self.request.proxy and not self.context.flaresolverr:
-            args.append('--proxy')
-            args.append(f'{self.request.proxy}')
-            args.append('--timeout')
-            args.append('1200')
-        else:
-            args.append('--timeout')
-            args.append('600')
-
-        if self.context.page_delay:
-            args.append('--delay')
-            args.append(f'{self.context.page_delay}')
 
         if self.request.cover:
-            args.append('--cover')
+            args.append( '--cover' )
 
         if self.request.images == False or self.request.format == 'mp3':
-            args.append('--no-image')
+            args.append( '--no-image' )
 
         if self.request.start:
-            args.append('--start')
-            args.append(f'{self.request.start}')
+            args.append( '--start' )
+            args.append( f'{self.request.start}' )
 
         if self.request.end:
-            args.append('--end')
-            args.append(f'{self.request.end}')
+            args.append( '--end' )
+            args.append( f'{self.request.end}' )
 
         if self.request.login and self.request.password:
-
-            if  not self.request.login.startswith('/') and not self.request.login.startswith('http:/') and not self.request.login.startswith('https:/')\
-                and\
-                not self.request.password.startswith('/') and not self.request.password.startswith('http:/') and not self.request.password.startswith('https:/'):
-                args.append('--login')
-                args.append(f'{self.request.login}')
-                args.append('--password')
-                args.append(f'{self.request.password}')
+            args.append('--login')
+            args.append(f'{self.request.login}')
+            args.append('--password')
+            args.append(f'{self.request.password}')
 
         if self.context.pattern:
             args.append('--book-name-pattern')
             args.append(self.context.pattern)
 
+        if self.request.proxy:
+            args.append( '--proxy' )
+            args.append( f'{self.request.proxy}' )
+        
         if self.context.flaresolverr:
             args.append('--flare')
             args.append(f'{self.context.flaresolverr}')
 
+        if self.context.page_delay:
+            args.append( '--delay' )
+            args.append( f'{self.context.page_delay}' )
+
         logger.info('#'*20)
         logger.info('#'*20)
-        logger.info(' '.join([os.path.join(self.context.exec_folder, self.context.downloader.folder, self.context.downloader.exec), *args]) )
+        logger.info(' '.join( [ os.path.join( self.context.exec_folder, self.context.downloader.folder, self.context.downloader.exec ), *args ] ) )
         logger.info('#'*20)
         logger.info('#'*20)
 
         self.proc = await asyncio.create_subprocess_exec(
-            os.path.join(self.context.exec_folder, self.context.downloader.folder, self.context.downloader.exec),
+            os.path.join( self.context.exec_folder, self.context.downloader.folder, self.context.downloader.exec ),
             *args,
-            cwd=os.path.join(self.context.exec_folder, self.context.downloader.folder),
-            env=os.environ,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            cwd    = os.path.join( self.context.exec_folder, self.context.downloader.folder ),
+            env    = dict(os.environ),
+            stdout = subprocess.PIPE,
+            stderr = subprocess.PIPE
         )
 
-        self.__set_step(variables.DownloaderStep.RUNNING)
+        self.SetStep( variables.DownloaderStep.RUNNING )
 
-        message = ''
-        
         while self.proc.returncode is None and not self.cancelled:
-            _msg = ''
+            message = ''
             new_line = await self.proc.stdout.readline()
+
             if new_line:
-                _msg = new_line.strip().decode(self.decoder, errors='replace')
-                self.dbg_log += f'\n{_msg}'
-                if _msg.startswith('Жду '):
-                    _msg = ''
-                if _msg.startswith('Загружена картинка'):
-                    _msg = ''
-                elif _msg.startswith('Начинаю сохранение книги'):
-                    _msg = 'Сохраняю файлы'
-                elif 'Дополнительный файл доступен' in _msg:
-                    _msg = 'Скачиваю доп. файл'
-                elif 'успешно сохранена' in _msg:
-                    _msg = 'Сохраняю файлы'
-            if _msg:
-                message = _msg
-                self.__set_message(_msg)
+                message = new_line.strip().decode( self.decoder, errors='replace' )
+                self.dbg_log += '\n' + message
+
+                if message.startswith( 'Жду ' ):
+                    message = ''
+                
+                elif message.startswith( 'Загружена картинка' ):
+                    message = ''
+                
+                elif message.startswith( 'Начинаю сохранение книги' ):
+                    message = 'Сохраняю файлы'
+                
+                elif 'Дополнительный файл доступен' in message:
+                    # _file = re.match(  )
+                    message = 'Скачиваю доп. файл'
+                
+                elif 'успешно сохранена' in message:
+                    message = 'Сохраняю файлы'
+
+            if message:
+                self.SetMessage( message )
             await asyncio.sleep(0.1)
         
         if self.cancelled:
-            self.dbg_log = ''
-            self.dbg_config = ''
-            return self.Stop()
+            self.Stop()
 
-        if self.__is_step__(variables.DownloaderStep.CANCELLED):
+        if self.__is_step__( variables.DownloaderStep.CANCELLED ):
             return
+
+        _trace = ( await self.proc.stdout.read() ).decode( 'utf-8' )
+        self.dbg_log += _trace
         
         if self.proc.returncode != 0:
-            error = await self.proc.stderr.read()
+            error = ( await self.proc.stderr.read() ).decode( 'utf-8' )
             if error:
-                self.dbg_log += error.decode('utf-8')
-                raise Exception(error.decode('utf-8'))
+                raise Exception( error )
             else:
-                raise ProcessLookupError('Process closed unexpectedly')
+                raise ChildProcessError( 'Процесс загрузки неожиданно завершился' )
         
-        t = os.listdir(self._folder)
-        if len(t) == 0:
-            error = ( await self.proc.stdout.read() ).decode('utf-8')
-            error += ( await self.proc.stderr.read() ).decode('utf-8')
-            self.dbg_log += error
-            if 'с ошибкой' in message and error:
-                if 'Получен бан. Попробуйте позже' in message:
-                    raise Exception('Получен бан. Попробуйте позже.')
-                else:
-                    raise Exception(message + '\n' + error)
+        files = os.listdir( self.results_folder ) if os.path.exists( self.results_folder ) else []
+        if len( files ) == 0:
+            error += ( await self.proc.stderr.read() ).decode( 'utf-8' )
+            if error:
+                raise FileExistsError( error )
             else:
-                raise FileExistsError('Ошибка загрузки файлов')
-    
-    async def process(self) -> None:
+                raise FileExistsError( 'Ошибка загрузки файлов' )
+
+
+    async def ProcessStep( self ) -> None:
 
         if self.cancelled:
             return self.Stop()
 
-        self.__set_step(variables.DownloaderStep.PROCESSING)
-        self.__set_message('Обработка файлов')
+        self.SetStep( variables.DownloaderStep.PROCESSING )
+        self.SetMessage( 'Обработка файлов' )
 
-        await self.check_files()
-
-        if self.cancelled:
-            return self.Stop()
-
-        await self.rename_files()
+        await self.CheckFiles()
 
         if self.cancelled:
             return self.Stop()
 
-        await self.process_files()
+        await self.RenameFiles()
 
         if self.cancelled:
             return self.Stop()
 
-        self.__set_step(variables.DownloaderStep.DONE)
-        self.__set_message('Выгрузка файлов')
+        await self.ProcessFiles()
 
-    async def check_files(self) -> None:
+        if self.cancelled:
+            return self.Stop()
 
+        self.SetStep( variables.DownloaderStep.DONE )
+        self.SetMessage( 'Выгрузка файлов' )
+
+
+    async def CheckFiles( self ) -> None:
         trash = []
-        
-        paths = os.listdir(self._folder)
-        # print('check_files')
-        # print(self._folder)
-        # print(paths)
-        for path in paths:
-            if os.path.isdir(os.path.join(self._folder, path)):
-                _audio = os.path.join(self._folder, path, 'Audio')
-                if os.path.isdir(_audio):
-                    audios = os.listdir(_audio)
-                    for track in audios:
-                        fname, extension = os.path.splitext(track)
+        root_files = os.listdir( self.results_folder )
+
+        for file in root_files:
+            file_path = os.path.join( self.results_folder, file )
+    
+            if os.path.isdir( file_path ):
+
+                audio_folder = os.path.join( file_path, 'Audio' )
+                if os.path.isdir( audio_folder ):
+                    audio_folder_files = os.listdir( audio_folder )
+                    for file in audio_folder_files:
+                        file_path = os.path.join( audio_folder, file )
+
+                        file_name, extension = os.path.splitext( file )
                         extension = extension[1:]
-                        if extension == self.request.format and not fname.startswith('sample'):
-                            self.temp.source_files.append( os.path.join(_audio, track) )
+                        
+                        if extension == self.request.format and not file_name.startswith( 'sample' ):
+                            self.temp.source_files.append( file_path )
+                        else:
+                            trash.append( file_path )
+
             else:
-                fname, extension = os.path.splitext(path)
+                file_name, extension = os.path.splitext( file )
                 extension = extension[1:]
 
                 if extension == 'json':
-                    _json = os.path.join(self._folder, path)
-                    self.temp.text = await self.process_caption( _json )
-                    trash.append( _json )
+                    self.temp.text = await self.ProcessCaption( file_path )
+                    trash.append( file_path )
 
                 elif extension == self.request.format:
-                    self.temp.source_files.append( os.path.join(self._folder, path) )
+                    self.temp.source_files.append( file_path )
 
-                elif extension in ['jpg','jpeg','png','gif'] and fname.endswith('_cover'):
-                    self.temp.cover = os.path.join(self._folder, path)
+                elif extension in [ 'jpg','jpeg','png','gif' ] and file_name.endswith( '_cover' ):
+                    self.temp.cover = file_path
 
                 else:
-                    trash.append( os.path.join(self._folder, path) )
+                    trash.append( file_path )
 
         for file in trash:
-            os.remove(file)
-    
-    async def rename_files(self) -> None:
+            os.remove( file )
+
+
+    async def RenameFiles( self ) -> None:
         source_files = []
         index = 1
-        need_index = len(self.temp.source_files) > 1
-
-        # print('rename_files',self.temp.source_files)
+        need_index = len( self.temp.source_files ) > 1
 
         suffix = ''
         if self.request.format != 'mp3':
             if self.request.start or self.request.end:
                 _chapters = self.temp.chapters_total
                 if _chapters > 0:
-                    _start = int(self.request.start)
-                    _end = int(self.request.end)
+                    _start = int( self.request.start )
+                    _end = int( self.request.end )
 
                     if _start != 0 and _end != 0:
                         suffix = f'-from-{_start}-to-{_end}'
+
                     elif _start != 0 and _end == 0:
                         if _start > 0:
                             _end = _start + _chapters
                             suffix = f'-from-{_start}-to-{_end}'
                         else:
-                            suffix = f'-last-{abs(_start)}'
+                            suffix = f'-last-{abs( _start )}'
+
                     elif _end != 0 and _start == 0:
                         suffix = f'-from-1-to-{_chapters}'
 
@@ -495,116 +561,110 @@ class Downloader():
                 for file in self.temp.source_files:
                     original_file = file
 
-                    path, file = os.path.split(original_file)
-                    old_name, extension = os.path.splitext(file)
+                    path, file = os.path.split( original_file )
+                    old_name, extension = os.path.splitext( file )
 
-                    new_name = old_name + suffix + (f" ({index})" if need_index else "") + extension
-                    new_file = os.path.join(path, new_name)
+                    new_name = old_name + suffix + (f" ({index})" if need_index else '') + extension
+                    new_file = os.path.join( path, new_name )
 
-                    os.rename(original_file, new_file)
+                    os.rename( original_file, new_file )
 
-                    source_files.append(new_file)
+                    source_files.append( new_file )
                     index += 1
             else:
                 source_files = self.temp.source_files
         
         else:
             index = 1
-            need_index = len(self.temp.source_files) > 1
+            need_index = len( self.temp.source_files ) > 1
             for file in self.temp.source_files:
                 original_file = file
 
-                path, file = os.path.split(original_file)
-                old_name, extension = os.path.splitext(file)
+                path, file = os.path.split( original_file )
+                old_name, extension = os.path.splitext( file )
 
-                new_name = f"{self.temp.author} - {self.temp.name}" + (f" ({index})" if need_index else "") + extension
-                new_file = os.path.join(path, new_name)
+                new_name = f"{self.temp.author} - {self.temp.name}" + (f" ({index})" if need_index else '') + extension
+                new_file = os.path.join( path, new_name )
 
-                os.rename(original_file, new_file)
+                os.rename( original_file, new_file )
 
-                source_files.append(new_file)
+                source_files.append( new_file )
                 index += 1
 
         self.temp.source_files = source_files
 
-    async def process_files(self) -> None:
+
+    async def ProcessFiles( self ) -> None:
 
         orig_size = 0
         result_files = []
-        splitted_folder = ''
-
-        # print('process_files',self.temp.source_files)
+        archives_folder = ''
 
         preselected_archiver = None
         for key, executable in self.context.compression.items():
-            if os.path.exists( executable['bin'] ):
+            if os.path.exists( executable[ 'bin' ] ):
                 preselected_archiver = key
 
-        if len(self.temp.source_files) > 0:
+        if len( self.temp.source_files ) > 0:
             for file in self.temp.source_files:
                 original_file = file
 
-                size = os.path.getsize(original_file)
+                size = os.path.getsize( original_file )
                 orig_size += size
 
                 if size < self.file_limit:
-                    result_files.append(original_file)
+                    result_files.append( original_file )
                 else:
-                    self.__set_message('Архивация файлов')
+                    file = os.path.basename( original_file )
+                    file_name, _ = os.path.splitext( file )
 
-                    file = os.path.basename(original_file)
-                    file_name, _ = os.path.splitext(file)
+                    self.SetMessage( f'Архивация файла {file_name}' )
 
-                    splitted_folder = os.path.join(self.context.arch_folder, str(self.request.task_id))
-                    os.makedirs(splitted_folder, exist_ok=True)
+                    archives_folder = os.path.join( self.context.arch_folder, str(self.request.task_id) )
+                    os.makedirs( archives_folder, exist_ok=True )
 
-                    target_archive = os.path.join(splitted_folder, f'{file_name}')
+                    target_archive = os.path.join( archives_folder, f'{file_name}' )
 
                     if preselected_archiver:
+                        split_file_size = int(self.file_limit / 1000 / 1000)
+                        split_file_size = f'{split_file_size}m'
+
                         if preselected_archiver == 'zip':
-                            sfs = int(self.file_limit / 1000 / 1000)
-                            _sfs = f'{sfs}m'
-                            args = [f'-s{_sfs}', '-0', target_archive, original_file]
-                        # if preselected_archiver == 'winrar':
-                        #     sfs = int(self.file_limit / 1000 / 1000)
-                        #     _sfs = f'{sfs}m'
-                        #     args = ['a', '-afzip', f'-v{_sfs}', '-ep', '-m0', target_archive, original_file]
-                        if preselected_archiver == 'rar':
-                            sfs = int(self.file_limit / 1000 / 1000)
-                            _sfs = f'{sfs}m'
-                            args = ['a', f'-v{_sfs}', '-ep', '-m0', target_archive, original_file]
-                        if preselected_archiver == '7z':
-                            sfs = int(self.file_limit / 1000 / 1000)
-                            _sfs = f'{sfs}m'
-                            args = ['a', f'-v{_sfs}', '-mx0', target_archive, original_file]
+                            args = [f'-s{split_file_size}', '-0', target_archive, original_file]
+
+                        elif preselected_archiver == 'rar':
+                            args = [ 'a' , f'-v{split_file_size}', '-ep', '-m0', target_archive, original_file]
+
+                        elif preselected_archiver == '7z':
+                            args = [ 'a' , f'-v{split_file_size}', '-mx0', target_archive, original_file]
 
                         self.proc = await asyncio.create_subprocess_exec(
-                            self.context.compression[ preselected_archiver ]['bin'],
+                            self.context.compression[ preselected_archiver ][ 'bin' ],
                             *args,
-                            cwd=self.context.compression[ preselected_archiver ]['cwd'],
-                            env=os.environ,
-                            stdout=subprocess.PIPE,
-                            stderr=subprocess.PIPE
+                            cwd    = self.context.compression[ preselected_archiver ][ 'cwd' ],
+                            env    = dict(os.environ),
+                            stdout = subprocess.PIPE,
+                            stderr = subprocess.PIPE
                         )
                         await self.proc.wait()
 
                         if self.proc.returncode == 0:
                             try:
-                                os.unlink(file)
+                                os.remove( file )
                             except:
                                 pass
                         else:
                             error = await self.proc.stdout.read()
                             error += await self.proc.stderr.read()
                             if error:
-                                raise Exception(error.decode('utf-8'))
+                                raise Exception( error.decode('utf-8') )
                             else:
                                 raise ProcessLookupError('Process closed unexpectedly')
 
-        if splitted_folder:
-            t = os.listdir(splitted_folder)
+        if archives_folder:
+            t = os.listdir(archives_folder)
             for x in t:
-                parted = os.path.join( splitted_folder, x )
+                parted = os.path.join( archives_folder, x )
                 result_files.append( parted )
                 self.temp.oper_size += os.path.getsize( parted )
 
@@ -613,116 +673,136 @@ class Downloader():
         self.temp.source_files = None
         self.temp.orig_size = orig_size
 
-        # print('process_files',self.temp.result_files)
+        # print('ProcessFiles',self.temp.result_files)
     
-    async def process_caption(self, filepath: str) -> str:
-        book_title: str = ""
-        book_url: str = ""
-        seria_name: str = ""
-        seria_url: str = ""
-        authors: list[str] = []
-        chapters: str = ""
+    async def ProcessCaption(
+        self,
+        filepath: str
+    ) -> str:
 
-        hashtags: list[str] = []
+        book_title: str = ''
+        book_url: str = ''
+        seria_name: str = ''
+        seria_url: str = ''
+        authors: List[ str ] = []
+        chapters: str = ''
+
+        hashtags: List[ str ] = []
 
         with open(filepath, "r") as f:
             _raw: str = f.read()
             try:
-                _json: Dict[str, Any] = ujson.loads(_raw)
+                _json: Dict[ str, Any ] = ujson.loads(_raw)
             except:
                 return ''
 
-            if 'Title' in _json and _json['Title']:
-                book_title = _json['Title']
-                self.temp.name = _json['Title']
+            if 'Title' in _json and _json[ 'Title' ]:
+                book_title = _json[ 'Title' ]
+                self.temp.name = _json[ 'Title' ]
 
-            if 'Url' in _json and _json['Url']:
-                book_url = _json['Url']
+            if 'Url' in _json and _json[ 'Url' ]:
+                book_url = _json[ 'Url' ]
 
             if 'Author' in _json:
-                if 'Name' in _json['Author']:
-                    _a_name: str = _json['Author']['Name'].replace('\n',' ')
+                if 'Name' in _json[ 'Author' ]:
+                    _a_name: str = _json[ 'Author' ][ 'Name' ]
+                    _a_name = _a_name.replace( '\n', ' ' )
+                    self.temp.author = _a_name
                     hashtags.append(_a_name)
-                    if 'Url' in _json['Author']:
-                        _a_url: str = _json['Author']['Url']
+
+                    if 'Url' in _json[ 'Author' ]:
+                        _a_url: str = _json[ 'Author' ][ 'Url' ]
                         authors.append( f'<a href="{_a_url}">{_a_name}</a>' )
                     else:
                         authors.append( _a_name )
                     
-                    self.temp.author = _a_name
 
-            if 'CoAuthors' in _json and _json['CoAuthors']:
-                for _author in _json['CoAuthors']:
+            if 'CoAuthors' in _json and _json[ 'CoAuthors' ]:
+                for _author in _json[ 'CoAuthors' ]:
                     if 'Name' in _author:
-                        _c_name: str = _author['Name'].replace('\n',' ')
+                        _c_name: str = _author[ 'Name' ]
+                        _c_name = _c_name.replace( '\n',' ' )
                         hashtags.append(_c_name)
+
                         if 'Url' in _author:
-                            _c_url: str = _author['Url']
+                            _c_url: str = _author[ 'Url' ]
                             authors.append( f'<a href="{_c_url}">{_c_name}</a>' )
                         else:
                             authors.append( _c_name )
 
-            if 'Seria' in _json and _json['Seria']:
-                if 'Name' in _json['Seria']:
-                    seria_name = _json['Seria']['Name'].replace('\n',' ')
+            if 'Seria' in _json and _json[ 'Seria' ]:
+                if 'Name' in _json[ 'Seria' ]:
+                    seria_name: str = _json[ 'Seria' ][ 'Name' ]
+                    seria_name = seria_name.replace( '\n', ' ' )
+                    seria_name = re.sub( r'\s+', ' ', seria_name )
                     hashtags.append(seria_name)
-                    if 'Number' in _json['Seria']:
-                        seria_name += ' #' + str(_json['Seria']['Number'])
-                    if 'Url' in _json['Seria']:
-                        seria_url = _json['Seria']['Url']
 
-            if 'Chapters' in _json and _json['Chapters']:
-                if len(_json['Chapters']) > 0:
-                    for chapter in _json['Chapters']:
-                        if chapter['Title']:
+                    if 'Number' in _json[ 'Seria' ]:
+                        seria_name += ' #' + str(_json[ 'Seria' ][ 'Number' ])
+
+                    if 'Url' in _json[ 'Seria' ]:
+                        seria_url = _json[ 'Seria' ][ 'Url' ]
+
+            if 'Chapters' in _json and _json[ 'Chapters' ]:
+                if len( _json[ 'Chapters' ] ) > 0:
+                    for chapter in _json[ 'Chapters' ]:
+                        if chapter[ 'Title' ]:
                             self.temp.chapters_total += 1
-                            if chapter['IsValid']:
+                            if chapter[ 'IsValid' ]:
                                 self.temp.chapters_valid += 1
-                                _c_name = chapter['Title'].replace('\n',' ')
+                                _c_name: str = chapter[ 'Title' ]
+                                _c_name = _c_name.replace('\n',' ')
                                 if not self.temp.first_chapter_name:
                                     self.temp.first_chapter_name = _c_name
                                 self.temp.last_chapter_name = _c_name
 
-        result = ""
+
+        result = ''
         if book_title and book_url:
             result += f'<a href="{book_url}">{book_title}</a>\n'
         elif book_title:
             result += f'{book_title}\n'
         
         if len(authors) > 0:
-            _a: str = ', '.join(authors)
+            _authors: str = ', '.join( authors )
             if len(authors) > 1:
-                result += f'Авторы: {_a}\n'
+                result += f'Авторы: {_authors}\n'
             else:
-                result += f'Автор: {_a}\n'
+                result += f'Автор: {_authors}\n'
+
+        self.temp.last_chapter_name = re.sub( r'\s+', ' ', self.temp.last_chapter_name )
+        self.temp.last_chapter_name = self.temp.last_chapter_name[:200]
         
         if seria_name and seria_url:
             result += f'Серия: <a href="{seria_url}">{seria_name}</a>\n'
         elif seria_name:
             result += f'Серия: {seria_name}\n'
         
-        chapters = self.__prepare_chapters()
+        chapters = self.PrepareChapters()
+
         if chapters:
             result += "\n"
             result += f'{chapters}'
 
-        hashtags = self.__prepare_hashtags(hashtags)
+        _hashtags = self.ProcessHashtags( hashtags )
         
-        if hashtags:
+        if _hashtags:
             result += "\n"
             result += "\n"
-            result += ' '.join(hashtags)
+            result += ' '.join( _hashtags )
 
         return result
 
     # external data transfer
 
-    async def __status(self):
+    async def SendStatus( self ) -> None:
 
         if self.message == self.prev_message:
             return
 
-        status = schemas.DownloadStatus(
+        self.SetMessage( self.message )
+
+        status = dto.DownloadStatus(
             task_id =    self.request.task_id,
             user_id =    self.request.user_id,
             bot_id =     self.request.bot_id,
@@ -735,69 +815,53 @@ class Downloader():
 
         self.statuses.put( status.model_dump() )
 
-        self.__set_message(self.message)
 
-    async def __error(self, err: Exception):
-        if self.__is_step__(variables.DownloaderStep.CANCELLED):
-            return
+    async def SendResult( self ) -> None:
 
-        self.__set_step(variables.DownloaderStep.ERROR)
-        self.temp.text = 'Произошла ошибка'
-        proc_err = False
-        if getattr(self,'proc'):
-            error = await self.proc.stderr.read(-1)
-            if error:
-                error = error.strip().decode(self.decoder, errors='ignore')
-                if error:
-                    proc_err = True
-                    self.temp.text = self.temp.text + ' <pre>\n'+ self.__escape_err( error ) +'\n</pre>'
-        if err and not proc_err:
-            self.temp.text = self.temp.text + ' <pre>\n'+ self.__escape_err( str(err) ) +'\n</pre>'
-
-    async def __result(self):
-
-        if self.__is_step__( variables.DownloaderStep.ERROR ) or self.__is_step__( variables.DownloaderStep.CANCELLED ):
+        if self.temp_folder and os.path.exists( self.temp_folder ):
             try:
-                if self._folder:
-                    shutil.rmtree( self._folder )
+                shutil.rmtree( self.temp_folder )
             except:
                 pass
-            self.temp.cover = ""
+
+        if self.__is_step__( variables.DownloaderStep.ERROR ) or self.__is_step__( variables.DownloaderStep.CANCELLED ):
+            self.temp.cover = ''
             self.temp.result_files = []
-        try:
-            if self._folder:
-                shutil.rmtree( self._temp )
-        except:
-            pass
+            if self.results_folder and os.path.exists( self.temp_folder ):
+                try:
+                    shutil.rmtree( self.results_folder )
+                except:
+                    pass
 
         if self.__is_step__( variables.DownloaderStep.CANCELLED ):
             return
         
         if not self.__is_step__( variables.DownloaderStep.ERROR ):
             self.dbg_log = None
-            self.dbg_config = None
+        else:
+            self.dbg_config = self.__debug_config__()
         
-        result = schemas.DownloadResult(
-            task_id =    self.request.task_id,
-            user_id =    self.request.user_id,
-            bot_id =     self.request.bot_id,
-            web_id =     self.request.web_id,
-            chat_id =    self.request.chat_id,
+        result = dto.DownloadResult(
+            task_id    = self.request.task_id,
+            user_id    = self.request.user_id,
+            bot_id     = self.request.bot_id,
+            web_id     = self.request.web_id,
+            chat_id    = self.request.chat_id,
             message_id = self.request.message_id,
-            status =     self.step,
-            site =       self.request.site,
-            text =       self.temp.text,
-            cover =      self.temp.cover,
-            files =      self.temp.result_files,
-            orig_size =  self.temp.orig_size,
-            oper_size =  self.temp.oper_size,
-            folder =     self._folder,
-            proxy =      self.request.proxy,
-            url =        self.request.url,
-            format =     self.request.format,
-            start =      self.request.start,
-            end =        self.request.end,
-            dbg_log =    self.dbg_log,
+            status     = self.step,
+            site       = self.request.site,
+            text       = self.temp.text,
+            cover      = self.temp.cover,
+            files      = self.temp.result_files,
+            orig_size  = self.temp.orig_size,
+            oper_size  = self.temp.oper_size,
+            folder     = self.results_folder,
+            proxy      = self.request.proxy,
+            url        = self.request.url,
+            format     = self.request.format,
+            start      = self.request.start,
+            end        = self.request.end,
+            dbg_log    = self.dbg_log,
             dbg_config = self.dbg_config
         )
 

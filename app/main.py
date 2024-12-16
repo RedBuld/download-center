@@ -7,13 +7,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError, ResponseValidationError
-from app import schemas, variables
+from app import dto, variables
 from app.configs import GC, DC, QC
 from app.objects import DB, RD
 
 logging.basicConfig(
-    # filename='/srv/download-center/log.log',
-    format='\x1b[32m%(levelname)s\x1b[0m:     %(name)s[%(process)d] %(asctime)s - %(message)s',
+    format='%(levelname)s: %(name)s[%(process)d] - %(asctime)s - %(message)s',
     level=logging.INFO
 )
 logger = logging.getLogger( __name__ )
@@ -75,9 +74,9 @@ app = FastAPI(
 
 #UPDATE CONFIG
 async def read_config():
-    await GC.updateConfig()
-    await DC.updateConfig()
-    await QC.updateConfig()
+    await GC.UpdateConfig()
+    await DC.UpdateConfig()
+    await QC.UpdateConfig()
     #
     await DB.UpdateConfig()
     await DQ.UpdateConfig()
@@ -101,47 +100,36 @@ async def start():
 @app.get('/export/queue')
 async def export_queue():
     data = await DQ.ExportQueue()
-    resp = schemas.ExportQueueResponse(**data)
+    resp = dto.ExportQueueResponse(**data)
     return resp
 
 @app.get('/export/stats')
 async def export_stats():
     data = await DB.GetStats()
-    resp = schemas.ExportStatsResponse(**data)
+    resp = dto.ExportStatsResponse(**data)
     return resp
 
 #
 
 @app.post('/sites/check')
-async def sites_check( request: schemas.SiteCheckRequest ):
-    allowed, parameters, formats = await DQ.CheckSite( request.site )
-    resp = schemas.SiteCheckResponse(
-        allowed = allowed,
-        parameters = parameters,
-        formats = formats
-    )
-    return resp
+async def sites_check( request: dto.SiteCheckRequest ):
+    response = await DQ.CheckSite( request.site )
+    return response
 
 @app.post('/sites/auths')
 async def sites_auths():
-    sites = await DQ.GetSitesWithAuth()
-    resp = schemas.SiteListResponse(
-        sites = sites
-    )
-    return resp
+    response = await DQ.GetSitesWithAuth()
+    return response
 
 @app.post('/sites/active')
 async def sites_active():
-    sites = await DQ.GetSitesActive()
-    resp = schemas.SiteListResponse(
-        sites = sites
-    )
-    return resp
+    response = await DQ.GetSitesActive()
+    return response
 
 #
 
 @app.post('/download/new')
-async def download_new( request: schemas.DownloadRequest ):
+async def download_new( request: dto.DownloadRequest ):
 
     try:
         resp = await asyncio.wait_for( DQ.AddTask( request ), 10 )
@@ -163,7 +151,7 @@ async def download_new( request: schemas.DownloadRequest ):
         )
 
 @app.post('/download/clear')
-async def download_clear( request: schemas.DownloadClearRequest ):
+async def download_clear( request: dto.DownloadClearRequest ):
 
     try:
         await DQ.ClearFolder( request )
@@ -178,7 +166,7 @@ async def download_clear( request: schemas.DownloadClearRequest ):
         )
 
 @app.post('/download/cancel')
-async def download_cancel( request: schemas.DownloadCancelRequest ):
+async def download_cancel( request: dto.DownloadCancelRequest ):
     try:
         resp = await asyncio.wait_for( DQ.CancelTask( request ), 10 )
         return resp
