@@ -147,7 +147,6 @@ class DownloadResult(Base):
         self.files      = dto.files
         self.orig_size  = dto.orig_size
         self.oper_size  = dto.oper_size
-        self.folder     = dto.folder
         self.proxy      = dto.proxy
         self.url        = dto.url
         self.format     = dto.format

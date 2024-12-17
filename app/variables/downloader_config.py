@@ -12,6 +12,7 @@ class DownloaderConfig():
     arch_folder: str | os.PathLike
     compression: Dict[ str, str | os.PathLike ]
     downloaders: Dict[ str, DownloaderConfigExec ]
+    file_limit:  int = 1_549_000_000
     inited:      bool = False
 
     def __repr__( self ) -> str:
@@ -76,6 +77,8 @@ class DownloaderConfig():
             raise Exception('No downloaders in downloader.json config')
         
         self.compression = config[ 'compression' ] if 'compression' in config else {}
+
+        self.file_limit = config[ 'file_limit' ] if 'file_limit' in config else 1_549_000_000
         
         downloaders = {}
         for name, data in _downloaders.items():
@@ -103,6 +106,7 @@ class DownloaderContext():
     exec_folder:   str | os.PathLike
     temp_folder:   str | os.PathLike
     arch_folder:   str | os.PathLike
+    file_limit:    int
     downloader:    DownloaderConfigExec
     compression:   Dict[ str, Dict[ str, str | os.PathLike ] ]
     flaresolverr:  str = ""
@@ -119,6 +123,7 @@ class DownloaderContext():
             'flaresolverr': self.flaresolverr,
             'pattern':      self.pattern,
             'page_delay':   self.page_delay,
+            'file_limit':   self.file_limit,
         }
 
     def __repr__( self ) -> str:

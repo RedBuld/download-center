@@ -16,36 +16,33 @@ NONE_USER = 'noneuser'
 
 class _DELAY:
     noneuser = 'delay'
-    hasuser = 'delay_per_user'
+    hasuser  = 'delay_per_user'
 
     def __getattribute__( self, attr ):
-        print( '__getattribute__', attr )
         if attr == NONE_USER:
-            return object.__getattribute__(self, 'noneuser')
+            return object.__getattribute__( self, 'noneuser' )
         else:
-            return object.__getattribute__(self, 'hasuser')
+            return object.__getattribute__( self, 'hasuser' )
 
 class _WAIT:
     noneuser = 'waiting'
-    hasuser = 'waiting_per_user'
+    hasuser  = 'waiting_per_user'
 
     def __getattribute__( self, attr ):
-        print( '__getattribute__', attr )
         if attr == NONE_USER:
-            return object.__getattribute__(self, 'noneuser')
+            return object.__getattribute__( self, 'noneuser' )
         else:
-            return object.__getattribute__(self, 'hasuser')
+            return object.__getattribute__( self, 'hasuser' )
 
 class _ONETIME:
     noneuser = 'one_time'
-    hasuser = 'one_time_per_user'
+    hasuser  = 'one_time_per_user'
 
     def __getattribute__( self, attr ):
-        print( '__getattribute__', attr )
         if attr == NONE_USER:
-            return object.__getattribute__(self, 'noneuser')
+            return object.__getattribute__( self, 'noneuser' )
         else:
-            return object.__getattribute__(self, 'hasuser')
+            return object.__getattribute__( self, 'hasuser' )
 
 DELAY = _DELAY()
 WAIT = _WAIT()

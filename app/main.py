@@ -56,6 +56,7 @@ async def lifespan( app: FastAPI ):
     logger.info('stopping app')
     await DQ.Save()
     await DQ.Stop()
+    await DQ.Close()
     await DB.Stop()
     if RD is not None:
         await RD.close()
@@ -86,14 +87,6 @@ async def read_config():
 @app.get('/update_config')
 async def update_config():
     await read_config()
-
-@app.post('/stop')
-async def stop():
-    await DQ.Stop()
-
-@app.post('/start')
-async def start():
-    await DQ.Start()
 
 #
 
@@ -170,6 +163,95 @@ async def download_cancel( request: dto.DownloadCancelRequest ):
     try:
         resp = await asyncio.wait_for( DQ.CancelTask( request ), 10 )
         return resp
+    except Exception as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     "Произошла ошибка: "+str(e)
+        )
+
+#
+
+@app.post('/queue/stop')
+async def queue_stop():
+    try:
+        await DQ.Stop()
+        return JSONResponse(
+            status_code = 200,
+            content =     ""
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     "Произошла ошибка: "+str(e)
+        )
+
+@app.post('/queue/stop/tasks')
+async def queue_stop_tasks():
+    try:
+        await DQ.StopTasks()
+        return JSONResponse(
+            status_code = 200,
+            content =     ""
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     "Произошла ошибка: "+str(e)
+        )
+
+@app.post('/queue/stop/results')
+async def queue_stop_results():
+    try:
+        await DQ.StopResults()
+        return JSONResponse(
+            status_code = 200,
+            content =     ""
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     "Произошла ошибка: "+str(e)
+        )
+
+#
+
+
+@app.post('/queue/start')
+async def queue_start():
+    try:
+        await DQ.Start()
+        return JSONResponse(
+            status_code = 200,
+            content =     ""
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     "Произошла ошибка: "+str(e)
+        )
+
+@app.post('/queue/start/tasks')
+async def queue_start_tasks():
+    try:
+        await DQ.StartTasks()
+        return JSONResponse(
+            status_code = 200,
+            content =     ""
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     "Произошла ошибка: "+str(e)
+        )
+
+@app.post('/queue/start/results')
+async def queue_start_results():
+    try:
+        await DQ.StartResults()
+        return JSONResponse(
+            status_code = 200,
+            content =     ""
+        )
     except Exception as e:
         return JSONResponse(
             status_code = 500,

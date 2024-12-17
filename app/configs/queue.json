@@ -7,8 +7,8 @@
         "cbz": ["images","force_images","auth","paging"]
     },
     "proxies": [
-        "http://94.177.51.206:3128/",
-        "http://89.23.110.141:3128/"
+        "http://89.23.110.141:3128/",
+        "http://94.177.51.206:3128/"
     ],
     "flaresolverrs": {
         "http://94.177.51.206:3128/": "http://127.0.0.1:9001/",
@@ -40,6 +40,13 @@
             "pattern": "{Book.Title}"
         },
         "ranobe": {
+            "one_time": 1,
+            "max_one_time": 10,
+            "waiting_per_user": 5,
+            "formats": ["fb2","epub"],
+            "pattern": "{Book.Title}"
+        },
+        "wattpad": {
             "one_time": 1,
             "max_one_time": 10,
             "waiting_per_user": 5,
@@ -379,24 +386,6 @@
             "parameters": ["paging","images"],
             "allowed_groups": ["ranobe"]
         },
-        "slashlib.me": {
-            "active": true,
-            "parameters": ["paging","force_images","auth"],
-            "allowed_groups": ["manga"],
-            "force_proxy": true,
-            "one_time": 1,
-            "delay_per_user": 120
-        },
-        "wattpad.com": {
-            "active": true,
-            "parameters": ["images"],
-            "allowed_groups": ["ranobe"],
-            "use_flare": true,
-            "force_proxy": true,
-            "one_time": 1,
-            "delay": 120,
-            "page_delay": 2
-        },
         "younettranslate.com": {
             "active": true,
             "parameters": ["paging","images"],
@@ -430,6 +419,7 @@
             "parameters": ["paging","force_images","auth"],
             "allowed_groups": ["manga"],
             "force_proxy": true,
+            "use_flare": true,
             "one_time": 1,
             "page_delay": 1
         },
@@ -484,6 +474,25 @@
             "one_time": 1,
             "page_delay": 1,
             "delay": 60
+        },
+        "slashlib.me": {
+            "active": true,
+            "parameters": ["paging","force_images","auth"],
+            "allowed_groups": ["manga"],
+            "force_proxy": true,
+            "use_flare": true,
+            "one_time": 1,
+            "delay_per_user": 120
+        },
+        "wattpad.com": {
+            "active": true,
+            "parameters": ["images"],
+            "allowed_groups": ["wattpad"],
+            "use_flare": true,
+            "force_proxy": true,
+            "one_time": 1,
+            "delay": 120,
+            "page_delay": 2
         }
 	}
 }

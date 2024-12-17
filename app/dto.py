@@ -56,7 +56,6 @@ class DownloadCancelRequest(BaseModel):
 
 class DownloadClearRequest(BaseModel):
     task_id:    int
-    folder:     str
 
 #
 
@@ -81,19 +80,19 @@ class DownloadCancelResponse(BaseModel):
     message_id: int
 
 class ExportStatsResponse(BaseModel):
-    current_day: ExportStatsResponseGroup
-    previous_day: ExportStatsResponseGroup
-    current_month: ExportStatsResponseGroup
+    current_day:    ExportStatsResponseGroup
+    previous_day:   ExportStatsResponseGroup
+    current_month:  ExportStatsResponseGroup
     # previous_month: ExportStatsResponseGroup
-    current_year: ExportStatsResponseGroup
-    previous_year: ExportStatsResponseGroup
-    total: ExportStatsResponseGroup
+    current_year:   ExportStatsResponseGroup
+    previous_year:  ExportStatsResponseGroup
+    total:          ExportStatsResponseGroup
 
     class Config:
         from_attributes = True
 
 class ExportQueueResponse(BaseModel):
-    stats: Dict[ str, Dict[ str, Any ] ] = {}
+    stats:   Dict[ str, Dict[ str, Any ] ] = {}
     waiting: List[ ExportQueueWaitingGroup ] = []
     running: List[ ExportQueueRunningGroup ] = []
 
@@ -109,21 +108,21 @@ class ExportStatsResponseGroup(BaseModel):
     @property
     def total(self) -> ExportStatsResponseElement:
 
-        success: int = 0
-        failure: int = 0
+        success:   int = 0
+        failure:   int = 0
         orig_size: int = 0
         oper_size: int = 0
 
         for element in self.elements:
-            success += element.success
-            failure += element.failure
+            success   += element.success
+            failure   += element.failure
             orig_size += element.orig_size
             oper_size += element.oper_size
 
         return ExportStatsResponseElement(
-            site = 'Всего',
-            success = success,
-            failure = failure,
+            site      = 'Всего',
+            success   = success,
+            failure   = failure,
             orig_size = orig_size,
             oper_size = oper_size,
         )
@@ -132,9 +131,9 @@ class ExportStatsResponseGroup(BaseModel):
         from_attributes = True
 
 class ExportStatsResponseElement(BaseModel):
-    site: str = ""
-    success: int = 0
-    failure: int = 0
+    site:      str = ""
+    success:   int = 0
+    failure:   int = 0
     orig_size: int = 0
     oper_size: int = 0
 
@@ -142,14 +141,14 @@ class ExportStatsResponseElement(BaseModel):
         from_attributes = True
 
 class ExportQueueWaitingGroup(BaseModel):
-    name: str
+    name:  str
     tasks: List[ ExportQueueWaitingTask ] = []
 
     class Config:
         from_attributes = True
 
 class ExportQueueRunningGroup(BaseModel):
-    name: str
+    name:  str
     tasks: List[ ExportQueueRunningTask ] = []
 
     class Config:
@@ -166,8 +165,8 @@ class ExportQueueWaitingTask(BaseModel):
 
 class ExportQueueRunningTask(BaseModel):
     task_id: int
-    status: str
     request: DownloadRequest
+    status:  str
 
     class Config:
         from_attributes = True
@@ -181,19 +180,18 @@ class DownloadResult(BaseModel):
     web_id:     str | None = None
     chat_id:    int | None = None
     message_id: int | None = None
-    status:     int
-    site:       str
-    text:       str
-    cover:      str | os.PathLike
-    files:      List[ str | os.PathLike ]
-    orig_size:  int
-    oper_size:  int
-    folder:     str
+    site:       str = ''
     proxy:      str | None = ""
     url:        str | None = ''
     format:     str | None = ''
     start:      int | None = 0
     end:        int | None = 0
+    status:     int
+    text:       str = ''
+    cover:      str | os.PathLike
+    files:      List[ str | os.PathLike ]
+    orig_size:  int = 0
+    oper_size:  int = 0
     dbg_log:    str | None = None
     dbg_config: str | None = None
 
@@ -207,5 +205,5 @@ class DownloadStatus(BaseModel):
     web_id:     str | None = None
     chat_id:    int | None = None
     message_id: int | None = None
-    text:       str
+    text:       str = ''
     status:     int

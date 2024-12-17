@@ -58,15 +58,11 @@ class DownloadsQueue():
 
     async def Start(self) -> None:
         self.stop_queue = False
-        self.stopped_results = False
-        self.stopped_tasks = False
         self.tasks_pause = False
         try:
-            asyncio.create_task( self.resultsRunner() )
-            await asyncio.sleep( 0 )
+            await self.StartResults()
 
-            asyncio.create_task( self.tasksRunner() )
-            await asyncio.sleep( 0 )
+            await self.StartTasks()
 
             if GC.restore_tasks:
                 await self.restoreTasks()
@@ -80,13 +76,49 @@ class DownloadsQueue():
             traceback.print_exc()
 
 
+    async def StartTasks(self) -> None:
+        self.stopped_tasks = False
+        self.stop_queue_tasks = False
+        asyncio.create_task( self.tasksRunner() )
+        await asyncio.sleep( 0 )
+
+
+    async def StartResults(self) -> None:
+        self.stopped_results = False
+        self.stop_queue_results = False
+        asyncio.create_task( self.resultsRunner() )
+        await asyncio.sleep( 0 )
+    #
+
     async def Stop( self ) -> None:
         self.stop_queue = True
+        self.stop_queue_tasks = True
+        self.stop_queue_results = True
         while not self.stopped_results and not self.stopped_tasks:
             await asyncio.sleep( 0.1 )
         self.statuses.close()
         self.results.close()
 
+
+    async def StopTasks( self ) -> None:
+        self.stop_queue_tasks = True
+        while not self.stopped_tasks:
+            await asyncio.sleep( 0.1 )
+
+
+    async def StopResults( self ) -> None:
+        self.stop_queue_results = True
+        while not self.stopped_results:
+            await asyncio.sleep( 0.1 )
+
+    #
+
+
+    async def Close( self ) -> None:
+        while not self.stopped_results and not self.stopped_tasks:
+            await asyncio.sleep( 0.1 )
+        self.statuses.close()
+        self.results.close()
 
     async def Save( self ) -> None:
         await self.stats.Save()
@@ -169,7 +201,7 @@ class DownloadsQueue():
     async def AddTask(
         self,
         request: dto.DownloadRequest,
-        raise_on_limit: bool = True
+        is_restore: bool = False
     ) -> dto.DownloadResponse:
         logger.info( 'DQ: received request:' + str( request ) )
         response = dto.DownloadResponse()
@@ -192,23 +224,23 @@ class DownloadsQueue():
                     raise Exception( 'Сайт недоступен без прокси' )
         
         can_be_added = await self.stats.GroupCanAdd( group_name )
-        if not can_be_added and raise_on_limit:
+        if not can_be_added and not is_restore:
             raise variables.QueueCheckException( 'Максимум ожидающих загрузок для группы' )
 
         can_be_added = await self.stats.SiteCanAdd( site_name )
-        if not can_be_added and raise_on_limit:
+        if not can_be_added and not is_restore:
             raise variables.QueueCheckException( 'Максимум ожидающих загрузок для сайта' )
 
         can_be_added = await self.stats.UserCanAdd( request.user_id, site_name, group_name )
-        if not can_be_added and raise_on_limit:
+        if not can_be_added and not is_restore:
             raise variables.QueueCheckException( 'Максимум ожидающих загрузок для сайта/группы' )
         
         waiting_duplicate = await self.waiting.CheckDuplicate( group_name, request )
-        if waiting_duplicate:
+        if waiting_duplicate and not is_restore:
             raise variables.QueueCheckException( 'Такая загрузка уже добавлена в очередь' )
 
         running_duplicate = await self.running.CheckDuplicate( request )
-        if running_duplicate:
+        if running_duplicate and not is_restore:
             raise variables.QueueCheckException( 'Такая загрузка уже загружается' )
 
         if request.task_id is None: # Maybe restoring task
@@ -237,11 +269,11 @@ class DownloadsQueue():
             request = await DB.GetDownloadRequest( cancel_request.task_id )
 
             waiting_task = await self.waiting.RemoveTask( cancel_request.task_id )
-            if waiting_task != False:
+            if waiting_task != None:
                 await self.stats.RemoveWaiting( waiting_task.user_id, waiting_task.site, waiting_task.group )
 
             running_task = await self.running.RemoveTask( cancel_request.task_id )
-            if running_task != False:
+            if running_task != None:
                 await self.stats.RemoveRun( running_task.user_id, running_task.site, running_task.group, running_task.request.proxy )
 
             await DB.DeleteDownloadRequest( cancel_request.task_id )
@@ -262,10 +294,17 @@ class DownloadsQueue():
         self,
         clear_request: dto.DownloadClearRequest
     ) -> None:
-        if clear_request.folder:
+        if clear_request.task_id:
             try:
-                if os.path.isdir( clear_request.folder ):
-                    shutil.rmtree( clear_request.folder )
+                result_dir = os.path.join( DC.save_folder, str( clear_request.task_id ) )
+                if os.path.isdir( result_dir ):
+                    shutil.rmtree( result_dir )
+            except:
+                pass
+            try:
+                archive_dir = os.path.join( DC.arch_folder, str( clear_request.task_id ) )
+                if os.path.isdir( archive_dir ):
+                    shutil.rmtree( archive_dir )
             except:
                 pass
 
@@ -284,7 +323,7 @@ class DownloadsQueue():
         requests = await DB.GetAllDownloadRequests()
         for request in requests:
             logger.info( 'DQ: restoreTasks request: ' + str( request ) )
-            asyncio.create_task( self.AddTask( request.to_dto(), False ) )
+            asyncio.create_task( self.AddTask( request.to_dto(), True ) )
             await asyncio.sleep( 0.1 )
 
         logger.info( 'DQ: restoreTasks done' )
@@ -305,6 +344,7 @@ class DownloadsQueue():
                 break
         logger.info( 'DQ: flushRunner started' )
 
+
     async def resultsRunner( self ) -> None:
         logger.info( 'DQ: resultsRunner started' )
         while True:
@@ -315,7 +355,7 @@ class DownloadsQueue():
 
                     await self.taskDone( dto.DownloadResult( **json_result ) )
 
-                    if self.stop_queue:
+                    if self.stop_queue_results:
                         break
 
                 while not self.statuses.empty():
@@ -323,16 +363,17 @@ class DownloadsQueue():
 
                     await self.taskStatus( dto.DownloadStatus( **json_status ) )
 
-                    if self.stop_queue:
+                    if self.stop_queue_results:
                         break
 
             except:
                 traceback.print_exc()
-            if self.stop_queue:
+            if self.stop_queue_results:
                 break
         self.stopped_results = True
         logger.info('DQ: resultsRunner stopped')
-        
+
+
     async def tasksRunner( self ) -> None:
         logger.info('DQ: tasksRunner started')
         while True:
@@ -353,7 +394,7 @@ class DownloadsQueue():
 
                             # preventive skip group
                             if not await self.stats.GroupCanStart( group_name ):
-                                logger.info( f'DQ: group {group_name} can\'t run' )
+                                # logger.info( f'DQ: group {group_name} can\'t run' )
                                 continue
 
                             # go over waiting tasks
@@ -365,13 +406,13 @@ class DownloadsQueue():
                                 # check site
                                 site_name = task.request.site
                                 if not await self.stats.SiteCanStart( site_name, task.request.proxy ):
-                                    logger.info( f'DQ: site {site_name} can\'t run')
+                                    # logger.info( f'DQ: site {site_name} can\'t run')
                                     continue
 
                                 # check user
                                 user_id = task.request.user_id
                                 if not await self.stats.UserCanStart( user_id, site_name, group_name, task.request.proxy ):
-                                    logger.info( f'DQ: user {user_id} can\'t run' )
+                                    # logger.info( f'DQ: user {user_id} can\'t run' )
                                     continue
 
                                 task_id = task.task_id
@@ -382,7 +423,7 @@ class DownloadsQueue():
             except:
                 traceback.print_exc()
 
-            if self.stop_queue:
+            if self.stop_queue_tasks:
                 break
 
         self.stopped_tasks = True
@@ -415,7 +456,7 @@ class DownloadsQueue():
                         if waiting_task.request.proxy and QC.flaresolverrs.Has():
                             flaresolverr = await QC.flaresolverrs.GetInstance( waiting_task.request.proxy )
                         else:
-                            flaresolverr = await GC.flaresolverr
+                            flaresolverr = GC.flaresolverr
 
                     context = variables.DownloaderContext(
                         save_folder  = DC.save_folder,
@@ -423,6 +464,7 @@ class DownloadsQueue():
                         temp_folder  = DC.temp_folder,
                         arch_folder  = DC.arch_folder,
                         compression  = DC.compression,
+                        file_limit   = DC.file_limit,
                         downloader   = downloader,
                         page_delay   = page_delay,
                         pattern      = pattern,
@@ -431,7 +473,7 @@ class DownloadsQueue():
 
                     running_task.proc = Process(
                         target = start_downloader,
-                        name   = f"Downloader #{waiting_task.task_id}",
+                        name   = f"Downloader #{waiting_task.task_id} [{waiting_task.request.url}]",
                         kwargs = {
                             'request':  waiting_task.request,
                             'context':  context,
@@ -503,6 +545,9 @@ class DownloadsQueue():
 
     async def sendFiles(self, result: dto.DownloadResult) -> None:
 
+        if not result.files:
+            return
+
         if result.text == '':
             result.text = 'нет описания'
 
@@ -567,8 +612,9 @@ class DownloadsQueue():
             if 'auth' in site_config.parameters:
                 sites_with_auth.append( site_name )
 
-            if site_name not in sites_active:
-                sites_active.append( site_name )
+            if site_config.active:
+                if site_name not in sites_active:
+                    sites_active.append( site_name )
 
         self.sites_with_auth = sites_with_auth
         self.sites_active = sites_active

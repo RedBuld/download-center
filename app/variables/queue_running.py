@@ -137,7 +137,7 @@ class QueueRunningTask():
         self.group   = group
         self.url     = request.url
         self.request = request
-        self.status  = ""
+        self.status  = "Ожидает запуска"
 
     def __repr__( self ) -> str:
         return '<QueueRunningTask '+str( {
