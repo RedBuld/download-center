@@ -31,7 +31,6 @@ class DownloadFolders:
 @dataclass(init=False, slots=True)
 class DownloadTempData:
     json:           str = ''
-    cover:          str = ''
     files:          List[ str ] = field( default_factory=list )
     # src
     authors:        List[ str ] = field( default_factory=list )
@@ -54,7 +53,6 @@ class DownloadTempData:
 
     def __init__( self ) -> None:
         self.json           = ''
-        self.cover          = ''
         self.files          = []
         #
         self.authors        = []

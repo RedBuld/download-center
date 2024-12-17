@@ -131,13 +131,6 @@ class DownloaderStepDownload( DownloaderFrame ):
         _trace = ( await self.proc.stdout.read() ).decode( 'utf-8' )
         self.dbg_log += _trace
 
-
-        print('#'*20)
-        print('#'*20)
-        print(self.dbg_log)
-        print('#'*20)
-        print('#'*20)
-        
         if self.proc.returncode != 0:
             error = ( await self.proc.stderr.read() ).decode( 'utf-8' )
             if error:

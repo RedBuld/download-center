@@ -75,7 +75,7 @@ class DownloaderProcessCheckFiles( DownloaderFrame ):
                 valid = True
 
             elif extension in [ 'jpg','jpeg','png','gif' ] and file_name.endswith( '_cover' ):
-                self.temp.cover = file_path
+                self.result.cover = file_path
                 valid = True
         
         return valid
