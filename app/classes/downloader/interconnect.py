@@ -23,7 +23,7 @@ class DownloaderInterconnect( DownloaderFrame ):
             chat_id    = self.request.chat_id,
             message_id = self.request.message_id,
             text       = self.message,
-            status     = self.step,
+            status     = self.status,
         )
 
         self.statuses.put( status.model_dump() )
@@ -37,8 +37,8 @@ class DownloaderInterconnect( DownloaderFrame ):
             except:
                 pass
 
-        if self.__is_step__( variables.DownloaderStep.ERROR ) or self.__is_step__( variables.DownloaderStep.CANCELLED ):
-            self.temp.cover = ''
+        if self.__is_status__( variables.DownloaderStatus.ERROR ) or self.__is_status__( variables.DownloaderStatus.CANCELLED ):
+            self.result.cover = ''
             self.temp.files = []
             if self.folders.result and os.path.exists( self.folders.result ):
                 try:
@@ -46,10 +46,10 @@ class DownloaderInterconnect( DownloaderFrame ):
                 except:
                     pass
 
-        if self.__is_step__( variables.DownloaderStep.CANCELLED ):
+        if self.__is_status__( variables.DownloaderStatus.CANCELLED ):
             return
         
-        if self.__is_step__( variables.DownloaderStep.ERROR ):
+        if self.__is_status__( variables.DownloaderStatus.ERROR ):
             self.dbg_config = self.__debug_config__()
         else:
             self.dbg_log = None
@@ -67,7 +67,7 @@ class DownloaderInterconnect( DownloaderFrame ):
             format     = self.request.format,
             start      = self.request.start,
             end        = self.request.end,
-            status     = self.step,
+            status     = self.status,
             text       = self.result.caption,
             cover      = self.result.cover,
             files      = self.result.files,

@@ -10,7 +10,7 @@ from .queue_running import *
 from .queue_sites_groups import *
 
 @dataclass(frozen=True)
-class DownloaderStep():
+class DownloaderStatus():
 	CANCELLED = 99
 	ERROR = 98
 	IDLE = 0

@@ -20,46 +20,31 @@ class DownloaderStepProcess(
     
     async def Process( self ) -> None:
 
-        if self.cancelled:
+
+        if self.__is_status__( variables.DownloaderStatus.CANCELLED ):
             return
 
-        self.SetStep( variables.DownloaderStep.PROCESSING )
+
+        self.SetStatus( variables.DownloaderStatus.PROCESSING )
         self.SetMessage( 'Обработка файлов' )
 
-        await self.CheckFiles()
 
-        if self.cancelled:
-            return
+        actions_queue = [
+            self.CheckFiles,
+            self.RenameFiles,
+            self.ProcessFiles,
+            self.ProcessJSON,
+            self.ProcessHashtags,
+            self.ProcessChapters,
+            self.ProcessCaption
+        ]
 
-        await self.RenameFiles()
 
-        if self.cancelled:
-            return
+        for action in actions_queue:
+            if self.__is_status__( variables.DownloaderStatus.CANCELLED ):
+                return
+            await action()
 
-        await self.ProcessFiles()
 
-        if self.cancelled:
-            return
-
-        await self.ProcessJSON()
-
-        if self.cancelled:
-            return
-
-        await self.ProcessHashtags()
-
-        if self.cancelled:
-            return
-
-        await self.ProcessChapters()
-
-        if self.cancelled:
-            return
-
-        await self.ProcessCaption()
-
-        if self.cancelled:
-            return
-
-        self.SetStep( variables.DownloaderStep.DONE )
+        self.SetStatus( variables.DownloaderStatus.DONE )
         self.SetMessage( 'Выгрузка файлов' )

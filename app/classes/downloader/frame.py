@@ -14,17 +14,10 @@ class DownloaderFrame:
     context:         variables.DownloaderContext
     statuses:        Queue
     results:         Queue
-    proc:            asyncio.subprocess.Process
+    monitor:         bool = True
 
-    temp:            variables.DownloadTempData
-    result:          variables.DownloadResultData
-    folders:         variables.DownloadFolders
-
-    done:            bool = False
-    cancelled:       bool = False
-
-    step:            int = variables.DownloaderStep.IDLE
-    prev_step:       int = variables.DownloaderStep.IDLE
+    status:          int = variables.DownloaderStatus.IDLE
+    prev_status:     int = variables.DownloaderStatus.IDLE
     
     message:         str = ''
     prev_message:    str = ''
@@ -32,7 +25,10 @@ class DownloaderFrame:
     dbg_log:         str = ''
     dbg_config:      str = ''
 
-    decoder:         str = 'utf-8'
+    temp:            variables.DownloadTempData
+    result:          variables.DownloadResultData
+    folders:         variables.DownloadFolders
+    proc:            asyncio.subprocess.Process
 
     def __repr__( self ) -> str:
         return str( {
@@ -42,19 +38,17 @@ class DownloaderFrame:
             'result':          self.result,
             'folders':         self.folders,
             'proc':            self.proc,
-            'done':            self.done,
-            'cancelled':       self.cancelled,
-            'step':            self.step,
-            'prev_step':       self.prev_step,
+            'status':          self.status,
+            'prev_status':     self.prev_status,
             'message':         self.message,
             'prev_message':    self.prev_message,
         } )
 
-    def __is_step__(
+    def __is_status__(
         self,
-        check_step: int
+        check_status: int
     ) -> bool:
-        return self.step == check_step
+        return self.status == check_status
     
     def __debug_config__( self ) -> str:
         return ujson.dumps( {
@@ -65,12 +59,12 @@ class DownloaderFrame:
 
     #
 
-    def SetStep(
+    def SetStatus(
         self,
-        new_step: int
+        new_status: int
     ) -> None:
-        self.prev_step = self.step
-        self.step = new_step
+        self.prev_status = self.status
+        self.status = new_status
 
     def SetMessage(
         self,

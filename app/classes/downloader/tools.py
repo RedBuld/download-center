@@ -9,10 +9,10 @@ class DownloaderTools( DownloaderFrame ):
         err: Exception
     ) -> None:
     
-        if self.__is_step__( variables.DownloaderStep.CANCELLED ):
+        if self.__is_status__( variables.DownloaderStatus.CANCELLED ):
             return
 
-        self.SetStep( variables.DownloaderStep.ERROR )
+        self.SetStatus( variables.DownloaderStatus.ERROR )
 
         message = 'Произошла ошибка: '
 
@@ -26,7 +26,9 @@ class DownloaderTools( DownloaderFrame ):
         else:
             message += '\n<pre>\n'+ self.escapeErrorText( str( err ) )[ :2000 ] +'\n</pre>'
         
-        return message
+        self.result.caption = message
+        self.result.cover = ''
+        self.result.files = []
 
     def escapeErrorText(
         self,

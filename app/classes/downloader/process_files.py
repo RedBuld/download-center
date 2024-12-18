@@ -64,7 +64,7 @@ class DownloaderProcessFiles( DownloaderFrame ):
                             error = await self.proc.stdout.read()
                             error += await self.proc.stderr.read()
                             if error:
-                                raise Exception( error.decode( 'utf-8' ) )
+                                raise Exception( error.decode( 'utf-8', errors='replace' ) )
                             else:
                                 raise ChildProcessError( 'Процесс архивации неожиданно завершился' )
 

@@ -324,11 +324,11 @@ class DataBase(object):
         result: dto.DownloadResult
     ) -> None:
 
-        if result.status == variables.DownloaderStep.CANCELLED:
+        if result.status == variables.DownloaderStatus.CANCELLED:
             return
 
-        success = 1 if result.status == variables.DownloaderStep.DONE else 0
-        failure = 1 if result.status == variables.DownloaderStep.ERROR else 0
+        success = 1 if result.status == variables.DownloaderStatus.DONE else 0
+        failure = 1 if result.status == variables.DownloaderStatus.ERROR else 0
 
         session = self._session()
         try:
