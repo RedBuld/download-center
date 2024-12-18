@@ -340,6 +340,7 @@ class DataBase(object):
                 'orig_size': result.orig_size,
                 'oper_size': result.oper_size,
             }
+            print('UpdateSiteStat', ss)
             session.execute(
                 insert(
                     models.SiteStat

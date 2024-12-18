@@ -4,7 +4,7 @@ import json
 from typing import Self
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncAttrs
-from sqlalchemy import BigInteger, Boolean, String, Text, UniqueConstraint, Date, DateTime
+from sqlalchemy import Integer, BigInteger, Boolean, String, Text, UniqueConstraint, Date, DateTime
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.orm import Mapped
@@ -170,25 +170,27 @@ class DownloadHistory(Base):
     id: Mapped[int] =         mapped_column('id', BigInteger, primary_key=True)
     user_id: Mapped[int] =    mapped_column('user_id', BigInteger, default=0)
     url: Mapped[str] =        mapped_column('url', Text, default="")
-    site: Mapped[str] =       mapped_column('site', String(100), default="")
-    format: Mapped[str] =     mapped_column('format', String(10), default="")
-    orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
-    oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
     start: Mapped[int] =      mapped_column('start', BigInteger, default=0)
     end: Mapped[int] =        mapped_column('end', BigInteger, default=0)
+    site: Mapped[str] =       mapped_column('site', String(100), default="")
+    format: Mapped[str] =     mapped_column('format', String(10), default="")
+    status: Mapped[int] =     mapped_column('status', Integer, nullable=True)
+    ended: Mapped[datetime] = mapped_column('ended', DateTime)
+    orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
+    oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
     dbg_log: Mapped[str] =    mapped_column('dbg_log', Text, nullable=True)
     dbg_config: Mapped[str] = mapped_column('dbg_config', Text, nullable=True)
-    ended: Mapped[datetime] = mapped_column('ended', DateTime)
 
     @classmethod
     def from_dto( cls, dto: dto.DownloadResult ) -> Self:
         history = cls()
         history.user_id    = dto.user_id
         history.url        = dto.url
-        history.site       = dto.site
-        history.format     = dto.format
         history.start      = dto.start
         history.end        = dto.end
+        history.site       = dto.site
+        history.format     = dto.format
+        history.status     = dto.status
         history.orig_size  = dto.orig_size
         history.oper_size  = dto.oper_size
         history.dbg_log    = dto.dbg_log

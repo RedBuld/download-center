@@ -545,9 +545,6 @@ class DownloadsQueue():
 
     async def sendFiles(self, result: dto.DownloadResult) -> None:
 
-        if not result.files:
-            return
-
         if result.text == '':
             result.text = 'нет описания'
 
