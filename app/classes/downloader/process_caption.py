@@ -17,10 +17,14 @@ class DownloaderProcessCaption( DownloaderFrame ):
             else:
                 self.result.caption += f'Автор: {authors}\n'
         
-        if self.temp.seria_name and self.temp.seria_url:
-            self.result.caption += f'Серия: <a href="{self.temp.seria_url}">{self.temp.seria_name}</a>\n'
-        elif self.temp.seria_name:
-            self.result.caption += f'Серия: {self.temp.seria_name}\n'
+        seria = self.temp.seria_name
+        if self.temp.seria_number:
+            seria = f'{seria} #{self.temp.seria_number}'
+        
+        if seria and self.temp.seria_url:
+            self.result.caption += f'Серия: <a href="{self.temp.seria_url}">{seria}</a>\n'
+        elif seria:
+            self.result.caption += f'Серия: {seria}\n'
         
         if self.temp.chapters:
             self.result.caption += f'\n{self.temp.chapters}\n'
