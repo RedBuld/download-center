@@ -5,14 +5,14 @@ class DownloaderProcessCaption( DownloaderFrame ):
     async def ProcessCaption( self ) -> None:
 
         if self.temp.book_title and self.temp.book_url:
-            self.result.caption += f'<a href="{self.temp.book_url}">{self.temp.book_title}</a>\n'
+            self.result.caption += f'<b><a href="{self.temp.book_url}">{self.temp.book_title}</a></b>\n'
 
         elif self.temp.book_title:
             self.result.caption += f'{self.temp.book_title}\n'
         
         if len( self.temp.authors ) > 0:
             authors: str = ', '.join( self.temp.authors )
-            if len( authors ) > 1:
+            if len( self.temp.authors ) > 1:
                 self.result.caption += f'Авторы: {authors}\n'
             else:
                 self.result.caption += f'Автор: {authors}\n'

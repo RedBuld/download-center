@@ -190,6 +190,7 @@ class QueueConfigSite():
     max_one_time:      int = 0
     max_waiting:       int = 0
     page_delay:        int = 0
+    excluded_proxy:    List[ str ] = field( default_factory=list )
 
     def __repr__(self) -> str:
         return str( {
@@ -210,6 +211,7 @@ class QueueConfigSite():
             'max_one_time':      self.max_one_time,
             'max_waiting':       self.max_waiting,
             'page_delay':        self.page_delay,
+            'excluded_proxy':    self.excluded_proxy,
         } )
 
 @dataclass(init=False)
@@ -230,21 +232,24 @@ class QueueConfigProxies():
 
     async def GetInstance(
         self,
-        site: str
+        site: str,
+        exclude: List[ str ]
     ) -> str:
         index = 0
 
-        if len( self.instances ) == 0:
+        instances = list( set( self.instances ) - set( exclude ) )
+
+        if len( instances ) == 0:
             return ''
         
         if site in self.last_by_site:
             index = self.last_by_site[ site ]
             index += 1
-            if index > len( self.instances ) - 1:
+            if index > len( instances ) - 1:
                 index = 0
 
         self.last_by_site[ site ] = index
-        return self.instances[ index ]
+        return instances[ index ]
 
 @dataclass(init=False)
 class QueueConfigFlaresolvers():

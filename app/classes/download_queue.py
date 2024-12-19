@@ -217,11 +217,10 @@ class DownloadsQueue():
             raise Exception( f'Не найдена конфигурация для сайта {site_name}' )
 
         if site_config.force_proxy:
+            if not request.proxy and QC.proxies.Has():
+                request.proxy = await QC.proxies.GetInstance( site_name, site_config.excluded_proxy )
             if not request.proxy:
-                if QC.proxies.Has():
-                    request.proxy = await QC.proxies.GetInstance( site_name )
-                else:
-                    raise Exception( 'Сайт недоступен без прокси' )
+                raise Exception( 'Сайт недоступен без прокси' )
         
         can_be_added = await self.stats.GroupCanAdd( group_name )
         if not can_be_added and not is_restore:
