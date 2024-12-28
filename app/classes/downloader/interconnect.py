@@ -18,7 +18,6 @@ class DownloaderInterconnect( DownloaderFrame ):
         status = dto.DownloadStatus(
             task_id    = self.request.task_id,
             user_id    = self.request.user_id,
-            bot_id     = self.request.bot_id,
             web_id     = self.request.web_id,
             chat_id    = self.request.chat_id,
             message_id = self.request.message_id,
@@ -57,7 +56,6 @@ class DownloaderInterconnect( DownloaderFrame ):
         result = dto.DownloadResult(
             task_id    = self.request.task_id,
             user_id    = self.request.user_id,
-            bot_id     = self.request.bot_id,
             web_id     = self.request.web_id,
             chat_id    = self.request.chat_id,
             message_id = self.request.message_id,

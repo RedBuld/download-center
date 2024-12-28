@@ -1,7 +1,3 @@
 {
-    "restore_tasks": false,
-    "bot_host": "http://127.0.0.1:8020/",
-    "queue_host": "http://127.0.0.1:8030/",
-    "flaresolverr": "http://localhost:8191/",
-    "redis_server": "redis://127.0.0.1:6379/4"
+    "flaresolverr": ""
 }

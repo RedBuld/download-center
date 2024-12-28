@@ -31,7 +31,6 @@ class DownloadRequest(Base):
 
     task_id: Mapped[int] =    mapped_column('task_id', BigInteger, primary_key=True)
     user_id: Mapped[int] =    mapped_column('user_id', BigInteger, default=0)
-    bot_id: Mapped[str] =     mapped_column('bot_id', String(10), nullable=True)
     web_id: Mapped[str] =     mapped_column('web_id', String(20), nullable=True)
     chat_id: Mapped[int] =    mapped_column('chat_id', BigInteger, default=0)
     message_id: Mapped[int] = mapped_column('message_id', BigInteger, default=0)
@@ -52,7 +51,6 @@ class DownloadRequest(Base):
         return {
             'task_id':    self.task_id,
             'user_id':    self.user_id,
-            'bot_id':     self.bot_id,
             'web_id':     self.web_id,
             'chat_id':    self.chat_id,
             'message_id': self.message_id,
@@ -78,7 +76,6 @@ class DownloadRequest(Base):
         
         request.task_id    = dto.task_id
         request.user_id    = dto.user_id
-        request.bot_id     = dto.bot_id
         request.web_id     = dto.web_id
         request.chat_id    = dto.chat_id
         request.message_id = dto.message_id
@@ -107,7 +104,6 @@ class DownloadResult(Base):
     secure: str =             ""
     task_id: Mapped[int] =    mapped_column('task_id', BigInteger, primary_key=True)
     user_id: Mapped[int] =    mapped_column('user_id', BigInteger, default=0)
-    bot_id: Mapped[str] =     mapped_column('bot_id', String(10), nullable=True)
     web_id: Mapped[str] =     mapped_column('web_id', String(20), nullable=True)
     chat_id: Mapped[int] =    mapped_column('chat_id', BigInteger, default=0)
     message_id: Mapped[int] = mapped_column('message_id', BigInteger, default=0)
@@ -136,7 +132,6 @@ class DownloadResult(Base):
     def _from_dto( self, dto: dto.DownloadResult ) -> Self:
         self.task_id    = dto.task_id
         self.user_id    = dto.user_id
-        self.bot_id     = dto.bot_id
         self.web_id     = dto.web_id
         self.chat_id    = dto.chat_id
         self.message_id = dto.message_id

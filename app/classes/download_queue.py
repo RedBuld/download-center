@@ -4,6 +4,7 @@ import asyncio
 import traceback
 import logging
 import shutil
+from datetime import datetime, timedelta
 from multiprocessing import Process, Queue
 from typing import List, Dict, Any
 from app import dto, variables
@@ -326,6 +327,34 @@ class DownloadsQueue():
             await asyncio.sleep( 0.1 )
 
         logger.info( 'DQ: restoreTasks done' )
+        
+    #
+
+    async def clearSpecialFolders(
+        self
+    ) -> None:
+        for _, downloader in DC.downloaders.items():
+            if len( downloader.clean ) > 0:
+                base_path = os.path.join( DC.exec_folder, downloader.folder )
+                for clean_folder in downloader.clean:
+                    folder_path = os.path.join( base_path, clean_folder['folder'] )
+                    del_time = datetime.now() - timedelta( seconds=clean_folder['time'] )
+                    del_time = del_time.timestamp()
+
+                    if os.path.exists( folder_path ):
+                        content = os.listdir( folder_path )
+                        for element_path in content:
+                            element = os.path.join( folder_path, element_path )
+                            element_stats = os.stat( element )
+                            if element_stats.st_mtime < del_time:
+                                if os.path.isdir( element ):
+                                    try:
+                                        shutil.rmtree( element )
+                                    except:
+                                        pass
+                                else:
+                                    os.unlink( element )
+
     
     #
 
@@ -336,6 +365,7 @@ class DownloadsQueue():
             try:
                 self.tasks_pause = True
                 await self.stats.Flush()
+                await self.clearSpecialFolders()
                 self.tasks_pause = False
             except:
                 traceback.print_exc()

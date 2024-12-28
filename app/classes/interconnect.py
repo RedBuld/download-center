@@ -16,47 +16,43 @@ class Interconnect():
         data: dto.DownloadResult | dto.DownloadStatus
     ) -> bool:
         
-        _type = str( type(data).__name__ )
+        _type = str( type( data ).__name__ )
         
         if _type == 'DownloadStatus':
-            return await self._status( data )
+            return await self.send_status( data )
         elif _type == 'DownloadResult':
-            return await self._result( data )
+            return await self.send_result( data )
         else:
             return False
 
-    async def _status(
+    async def send_status(
         self,
         status: dto.DownloadStatus
     ) -> bool:
-        if status.bot_id:
-            return await self._bot_status( status )
-        elif status.web_id:
-            return await self._web_status( status )
+        if status.web_id:
+            return await self.send_web_status( status )
         else:
-            return False
+            return await self.send_bot_status( status )
 
-    async def _result(
+    async def send_result(
         self,
         data: dto.DownloadResult
     ) -> bool:
-        if data.bot_id:
-            return await self._bot_result( data )
-        elif data.web_id:
-            return await self._web_result( data )
+        if data.web_id:
+            return await self.send_web_result( data )
         else:
-            return False
+            return await self.send_bot_result( data )
     
     #
 
-    async def _web_status(
+    async def send_web_status(
         self,
         data: dto.DownloadStatus
     ) -> bool:
         status = False
         return status
 
-    async def _bot_status(
+    async def send_bot_status(
         self,
         data: dto.DownloadStatus
     ) -> bool:
@@ -65,8 +61,8 @@ class Interconnect():
         _attempts = 0
         while _attempts < 5:
             try:
-                async with aiohttp.ClientSession(json_serialize=ujson.dumps) as session:
-                    async with session.post( GC.bot_host + 'download/status', json=data.model_dump(mode='json'), verify_ssl=False ) as response:
+                async with aiohttp.ClientSession( json_serialize=ujson.dumps ) as session:
+                    async with session.post( GC.bot_host + 'download/status', json=data.model_dump( mode='json' ), verify_ssl=False ) as response:
                         if response.status == 200:
                             _attempts = 5
                             status = True
@@ -82,14 +78,14 @@ class Interconnect():
     
     #
 
-    async def _web_result(
+    async def send_web_result(
         self,
         data: dto.DownloadResult
     ) -> bool:
         status = False
         return status
 
-    async def _bot_result(
+    async def send_bot_result(
         self,
         data: dto.DownloadResult
     ) -> bool:
@@ -98,8 +94,8 @@ class Interconnect():
         _attempts = 0
         while _attempts < 5:
             try:
-                async with aiohttp.ClientSession(json_serialize=ujson.dumps) as session:
-                    async with session.post( GC.bot_host + 'download/done', json=data.model_dump(mode='json'), verify_ssl=False ) as response:
+                async with aiohttp.ClientSession( json_serialize=ujson.dumps ) as session:
+                    async with session.post( GC.bot_host + 'download/done', json=data.model_dump( mode='json' ), verify_ssl=False ) as response:
                         if response.status == 200:
                             _attempts = 5
                             status = True

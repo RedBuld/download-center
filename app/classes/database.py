@@ -3,7 +3,7 @@ import ujson
 import traceback
 import logging
 import asyncio
-from typing import Dict, Any
+from typing import List, Dict, Any
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from sqlalchemy import select, delete, func, desc
@@ -25,25 +25,16 @@ class DataBase(object):
     _session: sessionmaker[Session] = None
 
     def __init__(self):
-        config_path = []
-
-        cwd = os.getcwd()
-
-        config_path.append( cwd )
-
-        if not cwd.endswith( 'app/' ) and not cwd.endswith( 'app' ):
-            config_path.append( 'app' )
-
-        config_file = os.path.join( *config_path, 'configs', 'database.json' )
-
-        config: Dict[ str, Any ] = {}
-
+        config_file = '/app/configs/database.json'
         if not os.path.exists( config_file ):
             raise FileNotFoundError( config_file )
 
+
+        config: Dict[ str, Any ] = {}
         with open( config_file, 'r', encoding='utf-8' ) as _config_file:
             _config = _config_file.read()
             config = ujson.loads( _config )
+
 
         self._server = config['server'] if 'server' in config else ""
     
@@ -70,7 +61,8 @@ class DataBase(object):
                 traceback.print_exc()
                 await asyncio.sleep( 1 )
                 continue
-    
+
+
     async def Stop(self) -> None:
         if self._engine:
             logger.info( 'DB: finished' )
@@ -78,12 +70,14 @@ class DataBase(object):
             self._engine = None
             self._session = None
 
+
     async def createDB(self) -> None:
         if self._engine:
             logger.info( 'DB: validate database' )
             models.Base.metadata.create_all( bind=self._engine, checkfirst=True )
             logger.info( 'DB: validated database' )
-    
+
+
     async def UpdateConfig(self) -> None:
         self.__init__()
         if self._engine:
@@ -92,6 +86,7 @@ class DataBase(object):
         
     
     #
+
 
     async def SaveDownloadRequest(
         self,
@@ -115,7 +110,8 @@ class DataBase(object):
             raise e
         finally:
             session.close()
-    
+
+
     async def GetDownloadRequest(
         self,
         task_id: int
@@ -141,7 +137,8 @@ class DataBase(object):
             raise e
         finally:
             session.close()
-    
+
+
     async def DeleteDownloadRequest(
         self,
         task_id: int
@@ -166,7 +163,8 @@ class DataBase(object):
             raise e
         finally:
             session.close()
-    
+
+
     async def GetAllDownloadRequests( self ) -> List[ models.DownloadRequest ]:
         session = self._session()
         try:
@@ -187,7 +185,9 @@ class DataBase(object):
         finally:
             session.close()
 
+
     #
+
 
     async def SaveDownloadResult(
         self,
@@ -223,7 +223,8 @@ class DataBase(object):
             raise e
         finally:
             session.close()
-    
+
+
     async def GetDownloadResult(
         self,
         task_id: int
@@ -249,7 +250,8 @@ class DataBase(object):
             raise e
         finally:
             session.close()
-    
+
+
     async def DeleteDownloadResult(
         self,
         task_id: int
@@ -274,7 +276,8 @@ class DataBase(object):
             raise e
         finally:
             session.close()
-    
+
+
     async def GetAllDownloadResults( self ) -> List[ models.DownloadResult ]:
         session = self._session()
         try:
@@ -295,7 +298,9 @@ class DataBase(object):
         finally:
             session.close()
 
+
     #
+
 
     async def AddDownloadHistory(
         self,
@@ -316,8 +321,10 @@ class DataBase(object):
             raise e
         finally:
             session.close()
-    
+
+
     #
+
 
     async def UpdateSiteStat(
         self,
@@ -363,8 +370,10 @@ class DataBase(object):
             raise e
         finally:
             session.close()
-    
+
+
     #
+
 
     async def GetStats( self ) -> Dict[ str, Any ]:
 
@@ -392,8 +401,8 @@ class DataBase(object):
         current_day_stats_query = session.execute(
             select(
                 models.SiteStat.site,
-                func.sum( models.SiteStat.success ),
-                func.sum( models.SiteStat.failure ),
+                func.sum( models.SiteStat.success ).label( "success" ),
+                func.sum( models.SiteStat.failure ).label( "failure" ),
                 func.sum( models.SiteStat.orig_size ).label( "orig_size" ),
                 func.sum( models.SiteStat.oper_size ).label( "oper_size" ),
             )
@@ -404,7 +413,7 @@ class DataBase(object):
                 models.SiteStat.site
             )
             .order_by(
-                desc( "orig_size" )
+                desc( "success" )
             )
         )
         current_day_stats = current_day_stats_query.all()
@@ -412,8 +421,8 @@ class DataBase(object):
         previous_day_stats_query = session.execute(
             select(
                 models.SiteStat.site,
-                func.sum( models.SiteStat.success ),
-                func.sum( models.SiteStat.failure ),
+                func.sum( models.SiteStat.success ).label( "success" ),
+                func.sum( models.SiteStat.failure ).label( "failure" ),
                 func.sum( models.SiteStat.orig_size ).label( "orig_size" ),
                 func.sum( models.SiteStat.oper_size ).label( "oper_size" ),
             )
@@ -424,7 +433,7 @@ class DataBase(object):
                 models.SiteStat.site
             )
             .order_by(
-                desc( "orig_size" )
+                desc( "success" )
             )
         )
         previous_day_stats = previous_day_stats_query.all()
@@ -434,8 +443,8 @@ class DataBase(object):
         current_month_stats_query = session.execute(
             select(
                 models.SiteStat.site,
-                func.sum( models.SiteStat.success ),
-                func.sum( models.SiteStat.failure ),
+                func.sum( models.SiteStat.success ).label( "success" ),
+                func.sum( models.SiteStat.failure ).label( "failure" ),
                 func.sum( models.SiteStat.orig_size ).label( "orig_size" ),
                 func.sum( models.SiteStat.oper_size ).label( "oper_size" ),
             )
@@ -449,7 +458,7 @@ class DataBase(object):
                 models.SiteStat.site
             )
             .order_by(
-                desc( "orig_size" )
+                desc( "success" )
             )
         )
         current_month_stats = current_month_stats_query.all()
@@ -475,8 +484,8 @@ class DataBase(object):
         current_year_stats_query = session.execute(
             select(
                 models.SiteStat.site,
-                func.sum( models.SiteStat.success ),
-                func.sum( models.SiteStat.failure ),
+                func.sum( models.SiteStat.success ).label( "success" ),
+                func.sum( models.SiteStat.failure ).label( "failure" ),
                 func.sum( models.SiteStat.orig_size ).label( "orig_size" ),
                 func.sum( models.SiteStat.oper_size ).label( "oper_size" ),
             )
@@ -490,7 +499,7 @@ class DataBase(object):
                 models.SiteStat.site
             )
             .order_by(
-                desc("orig_size")
+                desc("success")
             )
         )
         current_year_stats = current_year_stats_query.all()
@@ -498,8 +507,8 @@ class DataBase(object):
         previous_year_stats_query = session.execute(
             select(
                 models.SiteStat.site,
-                func.sum( models.SiteStat.success ),
-                func.sum( models.SiteStat.failure ),
+                func.sum( models.SiteStat.success ).label( "success" ),
+                func.sum( models.SiteStat.failure ).label( "failure" ),
                 func.sum( models.SiteStat.orig_size ).label( "orig_size" ),
                 func.sum( models.SiteStat.oper_size ).label( "oper_size" ),
             )
@@ -513,7 +522,7 @@ class DataBase(object):
                 models.SiteStat.site
             )
             .order_by(
-                desc( "orig_size" )
+                desc( "success" )
             )
         )
         previous_year_stats = previous_year_stats_query.all()
@@ -521,8 +530,8 @@ class DataBase(object):
         total_stats_query = session.execute(
             select(
                 models.SiteStat.site,
-                func.sum( models.SiteStat.success ),
-                func.sum( models.SiteStat.failure ),
+                func.sum( models.SiteStat.success ).label( "success" ),
+                func.sum( models.SiteStat.failure ).label( "failure" ),
                 func.sum( models.SiteStat.orig_size ).label( "orig_size" ),
                 func.sum( models.SiteStat.oper_size ).label( "oper_size" ),
             )
@@ -530,7 +539,7 @@ class DataBase(object):
                 models.SiteStat.site
             )
             .order_by(
-                desc( "orig_size" )
+                desc( "success" )
             )
         )
         total_stats = total_stats_query.all()

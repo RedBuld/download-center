@@ -75,8 +75,8 @@ class DownloaderProcessRenameFiles( DownloaderFrame ):
             _chapters = self.temp.chapters_total
 
             if _chapters > 0:
-                _start = int( self.request.start )
-                _end = int( self.request.end )
+                _start = int( self.request.start ) or 0
+                _end = int( self.request.end ) or 0
 
                 if _start != 0 and _end != 0:
                     suffix = f'-from-{_start}-to-{_end}'
@@ -106,4 +106,4 @@ class DownloaderProcessRenameFiles( DownloaderFrame ):
                 files.append( new_file )
                 index += 1
 
-                self.temp.files = files
+            self.temp.files = files

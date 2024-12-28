@@ -10,7 +10,6 @@ class SiteCheckRequest(BaseModel):
 class DownloadRequest(BaseModel):
     task_id:    int | None = None
     user_id:    int
-    bot_id:     str | None = None
     web_id:     str | None = None
     chat_id:    int | None = None
     message_id: int | None = None
@@ -34,7 +33,6 @@ class DownloadRequest(BaseModel):
         return {
             'task_id':    self.task_id,
             'user_id':    self.user_id,
-            'bot_id':     self.bot_id,
             'web_id':     self.web_id,
             'chat_id':    self.chat_id,
             'message_id': self.message_id,
@@ -74,7 +72,6 @@ class DownloadResponse(BaseModel):
 
 class DownloadCancelResponse(BaseModel):
     user_id:    int
-    bot_id:     str | None = None
     web_id:     str | None = None
     chat_id:    int
     message_id: int
@@ -176,7 +173,6 @@ class ExportQueueRunningTask(BaseModel):
 class DownloadResult(BaseModel):
     task_id:    int
     user_id:    int
-    bot_id:     str | None = None
     web_id:     str | None = None
     chat_id:    int | None = None
     message_id: int | None = None
@@ -201,7 +197,6 @@ class DownloadResult(BaseModel):
 class DownloadStatus(BaseModel):
     task_id:    int
     user_id:    int
-    bot_id:     str | None = None
     web_id:     str | None = None
     chat_id:    int | None = None
     message_id: int | None = None

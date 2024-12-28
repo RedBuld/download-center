@@ -55,7 +55,6 @@ class QueueConfig():
     flaresolverrs:  QueueConfigFlaresolvers
     groups:         Dict[ str, QueueConfigGroup ]
     sites:          Dict[ str, QueueConfigSite ]
-    inited:         bool = False
 
     def __init__(self) -> None:
         self.formats_params = None
@@ -75,30 +74,16 @@ class QueueConfig():
          } ) + '>'
 
     async def UpdateConfig( self ) -> None:
-        config_path = []
+        config_file = '/app/configs/queue.json'
+        if not os.path.exists( config_file ):
+            raise FileNotFoundError( config_file )
 
-        cwd = os.getcwd()
-
-        config_path.append( cwd )
-
-        if not cwd.endswith( 'app/' ) and not cwd.endswith( 'app' ):
-            config_path.append( 'app' )
-
-        config_file = os.path.join( *config_path, 'configs', 'queue.json' )
 
         config: Dict[ str, Any ] = {}
+        with open( config_file, 'r', encoding='utf-8' ) as _config_file:
+            _config = _config_file.read()
+            config = ujson.loads( _config )
 
-        try:
-            if not os.path.exists( config_file ):
-                raise FileNotFoundError( config_file )
-
-            with open( config_file, 'r', encoding='utf-8' ) as _config_file:
-                _config = _config_file.read()
-                config = ujson.loads( _config )
-        except Exception as e:
-            if not self.inited:
-                raise e
-            traceback.print_exc()
 
         formats_params = {}
         _formats_params = {}
@@ -107,12 +92,14 @@ class QueueConfig():
         for format, format_params in _formats_params.items():
             formats_params[format] = format_params
 
+
         groups = {}
         _groups = {}
         if 'groups' in config:
             _groups = config['groups']
         for group_name, group_data in _groups.items():
             groups[ group_name ] = from_dict( data_class=QueueConfigGroup, data=group_data, config=Config( check_types=False ) ) 
+
 
         sites = {}
         _sites = {}
@@ -121,23 +108,26 @@ class QueueConfig():
         for site_name, site_data in _sites.items():
             sites[ site_name ] = from_dict( data_class=QueueConfigSite, data=site_data, config=Config( check_types=False ) ) 
 
+
         _proxies = []
         if 'proxies' in config:
             _proxies = config['proxies']
-        proxies = from_dict( data_class=QueueConfigProxies, data={ 'instances':_proxies }, config=Config( check_types=False ) )
-        if self.proxies:
-            proxies.last_by_site = self.proxies.last_by_site
+        if self.proxies is None:
+            self.proxies = QueueConfigProxies()
+            self.proxies.instances = _proxies
+
 
         _flaresolverrs = {}
         if 'flaresolverrs' in config:
             _flaresolverrs = config['flaresolverrs']
-        flaresolverrs = from_dict( data_class=QueueConfigFlaresolvers, data={ 'instances':_flaresolverrs }, config=Config( check_types=False ) )
+        if self.flaresolverrs is None:
+            self.flaresolverrs = QueueConfigFlaresolvers()
+            self.flaresolverrs.instances = _flaresolverrs
+
 
         self.formats_params = formats_params
         self.groups = groups
         self.sites = sites
-        self.proxies = proxies
-        self.flaresolverrs = flaresolverrs
 
 
 @dataclass
@@ -214,14 +204,13 @@ class QueueConfigSite():
             'excluded_proxy':    self.excluded_proxy,
         } )
 
-@dataclass(init=False)
 class QueueConfigProxies():
-    instances: List[ str ]         = field( default_factory=list )
-    last_by_site: Dict[ str, int ] = field( default_factory=dict )
+    instances: List[ str ]         = []
+    last_by_site: Dict[ str, int ] = {}
 
     def __init__(
         self,
-        instances: List[ str ],
+        instances: List[ str ] = [],
         last_by_site: Dict[ str, int ] = {}
     ) -> None:
         self.instances    = instances
@@ -251,13 +240,12 @@ class QueueConfigProxies():
         self.last_by_site[ site ] = index
         return instances[ index ]
 
-@dataclass(init=False)
 class QueueConfigFlaresolvers():
-    instances: Dict[ str, str ] = field( default_factory=list )
+    instances: Dict[ str, str ] = {}
 
     def __init__(
         self,
-        instances: Dict[ str, str ]
+        instances: Dict[ str, str ] = []
     ) -> None:
         self.instances = instances
     

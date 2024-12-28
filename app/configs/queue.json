@@ -6,14 +6,8 @@
         "epub": ["images","force_images","auth","paging"],
         "cbz": ["images","force_images","auth","paging"]
     },
-    "proxies": [
-        "http://89.23.110.141:3128/",
-        "http://94.177.51.206:3128/"
-    ],
-    "flaresolverrs": {
-        "http://94.177.51.206:3128/": "http://127.0.0.1:9001/",
-        "http://89.23.110.141:3128/": "http://127.0.0.1:9002/"
-    },
+    "proxies": [],
+    "flaresolverrs": {},
     "groups": {
         "pdf": {
             "max_one_time": 1,
@@ -102,7 +96,7 @@
             "one_time": 1
         },
 		"books.yandex.ru": {
-            "active": true,
+            "active": false,
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["books","audiobooks"]
         },
@@ -152,7 +146,11 @@
             "delay": 150,
             "delay_per_user": 300,
             "page_delay": 1,
-            "waiting_per_user": 5
+            "waiting_per_user": 5,
+            "excluded_proxy": [
+                "http://89.23.110.141:3128/",
+                "http://94.177.51.206:3128/"
+            ]
         },
 		"fictionbook.ru": {
             "active": true,
@@ -226,8 +224,8 @@
             "force_proxy": true,
             "one_time": 1,
             "pattern": "{Author.Name} - {Book.Title}",
-            "delay": 120,
-            "delay_per_user": 125
+            "delay": 180,
+            "delay_per_user": 185
         },
 		"litres.ru": {
             "active": true,
@@ -368,6 +366,7 @@
             "parameters": ["paging","images","auth"],
             "allowed_groups": ["ranobe"],
             "force_proxy": true,
+            "use_flare": true,
             "one_time": 1,
             "delay_per_user": 120
         },
@@ -415,7 +414,7 @@
             "allowed_groups": ["ranobe","manga"]
         },
         "hentailib.me": {
-            "active": true,
+            "active": false,
             "parameters": ["paging","force_images","auth"],
             "allowed_groups": ["manga"],
             "force_proxy": true,
@@ -435,8 +434,8 @@
             "active": true,
             "parameters": ["paging","force_images","auth"],
             "allowed_groups": ["manga"],
-            "use_flare": true,
             "force_proxy": true,
+            "use_flare": true,
             "one_time": 1,
             "delay_per_user": 60
         },
@@ -488,8 +487,8 @@
             "active": true,
             "parameters": ["images"],
             "allowed_groups": ["wattpad"],
-            "use_flare": true,
             "force_proxy": true,
+            "use_flare": true,
             "one_time": 1,
             "delay": 120,
             "page_delay": 2

@@ -31,9 +31,9 @@ class DownloaderStepProcess(
 
         actions_queue = [
             self.CheckFiles,
+            self.ProcessJSON,
             self.RenameFiles,
             self.ProcessFiles,
-            self.ProcessJSON,
             self.ProcessHashtags,
             self.ProcessChapters,
             self.ProcessCaption

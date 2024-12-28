@@ -14,20 +14,19 @@ class DownloaderTools( DownloaderFrame ):
 
         self.SetStatus( variables.DownloaderStatus.ERROR )
 
-        message = 'Произошла ошибка'
+        message = f'Произошла ошибка\n{self.request.task_id}\n{self.request.url}\n\n'
 
         extended_log = True
 
-        if 'с ошибкой' in self.dbg_log:
-            if 'Получен бан. Попробуйте позже' in self.dbg_log:
-                message += ': Получен бан. Попробуйте позднее.'
-                extended_log = False
-            elif 'Не удалось авторизоваться.' in self.dbg_log:
-                message += ': Не удалось авторизоваться. Проверьте сохраненные доступы.'
-                extended_log = False
-            elif 'due to the configured HttpClient.Timeout' in self.dbg_log:
-                message += ': Сайт не отвечает. Попробуйте позднее.'
-                extended_log = False
+        if 'Получен бан. Попробуйте позже' in self.dbg_log:
+            message += 'Получен бан. Попробуйте позднее.'
+            extended_log = False
+        elif 'Не удалось авторизоваться.' in self.dbg_log:
+            message += 'Не удалось авторизоваться. Проверьте сохраненные доступы.'
+            extended_log = False
+        elif 'due to the configured HttpClient.Timeout' in self.dbg_log:
+            message += 'Сайт не отвечает. Попробуйте позднее.'
+            extended_log = False
 
         if extended_log:
             err_msg = str( err )
