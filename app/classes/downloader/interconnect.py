@@ -60,7 +60,7 @@ class DownloaderInterconnect( DownloaderFrame ):
             chat_id    = self.request.chat_id,
             message_id = self.request.message_id,
             site       = self.request.site,
-            proxy      = self.request.proxy,
+            proxy      = self.context.proxy,
             url        = self.request.url,
             format     = self.request.format,
             start      = self.request.start,
