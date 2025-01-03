@@ -45,7 +45,7 @@ class DownloadRequest(Base):
     cover: Mapped[bool] =     mapped_column('cover', Boolean, default=False)
     hashtags: Mapped[str] =   mapped_column('hashtags', String(5), default="no")
     filename: Mapped[str] =   mapped_column('filename', Text, nullable=True)
-    proxy: Mapped[str] =      mapped_column('proxy', Text, default="")
+    proxy: Mapped[str] =      mapped_column('proxy', Text, nullable=True)
 
     def __export__(self) -> dict:
         return {
@@ -115,7 +115,7 @@ class DownloadResult(Base):
     orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
     oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
     folder: Mapped[str] =     mapped_column('folder', Text, default="")
-    proxy: Mapped[str] =      mapped_column('proxy', Text, default="")
+    proxy: Mapped[str] =      mapped_column('proxy', Text, nullable=True)
     url: Mapped[str] =        mapped_column('url', Text, default="")
     format: Mapped[str] =     mapped_column('format', String(10), default="")
     start: Mapped[int] =      mapped_column('start', BigInteger, default=0)
@@ -163,6 +163,7 @@ class DownloadHistory(Base):
     __tablename__ = "downloads_history"
 
     id: Mapped[int] =         mapped_column('id', BigInteger, primary_key=True)
+    task_id: Mapped[int] =    mapped_column('task_id', BigInteger, default=0)
     user_id: Mapped[int] =    mapped_column('user_id', BigInteger, default=0)
     url: Mapped[str] =        mapped_column('url', Text, default="")
     start: Mapped[int] =      mapped_column('start', BigInteger, default=0)
@@ -170,7 +171,7 @@ class DownloadHistory(Base):
     site: Mapped[str] =       mapped_column('site', String(100), default="")
     format: Mapped[str] =     mapped_column('format', String(10), default="")
     status: Mapped[int] =     mapped_column('status', Integer, nullable=True)
-    ended: Mapped[datetime] = mapped_column('ended', DateTime)
+    ended: Mapped[datetime] = mapped_column('ended', DateTime, default=datetime.now)
     orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
     oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
     dbg_log: Mapped[str] =    mapped_column('dbg_log', Text, nullable=True)
@@ -179,6 +180,7 @@ class DownloadHistory(Base):
     @classmethod
     def from_dto( cls, dto: dto.DownloadResult ) -> Self:
         history = cls()
+        history.task_id    = dto.task_id
         history.user_id    = dto.user_id
         history.url        = dto.url
         history.start      = dto.start
@@ -186,9 +188,9 @@ class DownloadHistory(Base):
         history.site       = dto.site
         history.format     = dto.format
         history.status     = dto.status
+        history.ended      = datetime.now()
         history.orig_size  = dto.orig_size
         history.oper_size  = dto.oper_size
         history.dbg_log    = dto.dbg_log
         history.dbg_config = dto.dbg_config
-        history.ended      = datetime.now()
         return history

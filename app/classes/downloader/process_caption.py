@@ -8,7 +8,7 @@ class DownloaderProcessCaption( DownloaderFrame ):
             self.result.caption += f'<b><a href="{self.temp.book_url}">{self.temp.book_title}</a></b>\n'
 
         elif self.temp.book_title:
-            self.result.caption += f'{self.temp.book_title}\n'
+            self.result.caption += f'<b>{self.temp.book_title}</b>\n'
         
         if len( self.temp.authors ) > 0:
             authors: str = ', '.join( self.temp.authors )

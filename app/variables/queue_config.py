@@ -169,8 +169,9 @@ class QueueConfigSite():
     downloader:        str = "elib2ebook"
     pattern:           str = ""
     active:            bool = True
-    force_proxy:       bool = False
+    use_proxy:         bool = False
     use_flare:         bool = False
+    force_proxy:       bool = False
     one_time:          int = 0
     one_time_per_user: int = 0
     delay:             int = 0
@@ -190,8 +191,9 @@ class QueueConfigSite():
             'downloader':        self.downloader,
             'pattern':           self.pattern,
             'active':            self.active,
-            'force_proxy':       self.force_proxy,
+            'use_proxy':         self.use_proxy,
             'use_flare':         self.use_flare,
+            'force_proxy':       self.force_proxy,
             'one_time':          self.one_time,
             'one_time_per_user': self.one_time_per_user,
             'delay':             self.delay,
@@ -205,40 +207,25 @@ class QueueConfigSite():
         } )
 
 class QueueConfigProxies():
-    instances: List[ str ]         = []
-    last_by_site: Dict[ str, int ] = {}
+    instances: List[ str ] = []
 
     def __init__(
         self,
-        instances: List[ str ] = [],
-        last_by_site: Dict[ str, int ] = {}
+        instances: List[ str ] = []
     ) -> None:
         self.instances    = instances
-        self.last_by_site = last_by_site
     
     def Has( self ) -> bool:
         return len( self.instances ) != 0
 
-    async def GetInstance(
+    async def GetInstances(
         self,
-        site: str,
         exclude: List[ str ]
-    ) -> str:
-        index = 0
+    ) -> List[ str ]:
 
         instances = list( set( self.instances ) - set( exclude ) )
 
-        if len( instances ) == 0:
-            return ''
-        
-        if site in self.last_by_site:
-            index = self.last_by_site[ site ]
-            index += 1
-            if index > len( instances ) - 1:
-                index = 0
-
-        self.last_by_site[ site ] = index
-        return instances[ index ]
+        return instances
 
 class QueueConfigFlaresolvers():
     instances: Dict[ str, str ] = {}

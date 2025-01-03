@@ -112,6 +112,7 @@ class DownloaderContext():
     file_limit:    int
     downloader:    DownloaderConfigExec
     compression:   Dict[ str, Dict[ str, str | os.PathLike ] ] = field( default_factory=dict )
+    proxy:         str = ""
     flaresolverr:  str = ""
     pattern:       str = "{Book.Title}"
     page_delay:    int = 0

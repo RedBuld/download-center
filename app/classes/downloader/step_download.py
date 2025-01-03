@@ -160,9 +160,9 @@ class DownloaderStepDownload( DownloaderFrame ):
             args.append(self.context.pattern)
 
 
-        if self.request.proxy:
+        if self.context.proxy:
             args.append( '--proxy' )
-            args.append( f'{self.request.proxy}' )
+            args.append( f'{self.context.proxy}' )
 
 
         if self.context.flaresolverr:

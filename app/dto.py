@@ -55,6 +55,9 @@ class DownloadCancelRequest(BaseModel):
 class DownloadClearRequest(BaseModel):
     task_id:    int
 
+class DownloadLogRequest(BaseModel):
+    task_id:    int
+
 #
 
 class SiteCheckResponse(BaseModel):
@@ -62,8 +65,11 @@ class SiteCheckResponse(BaseModel):
     parameters: List[ str ] = []
     formats:    Dict[ str, List[ str ] ] = {}
 
-class SiteListResponse(BaseModel):
+class SitesListResponse(BaseModel):
     sites: List[ str ]
+
+class GroupedSitesResponse(BaseModel):
+    groups: Dict[ str, List[ str ] ]
 
 class DownloadResponse(BaseModel):
     status:  bool = False
@@ -202,3 +208,7 @@ class DownloadStatus(BaseModel):
     message_id: int | None = None
     text:       str = ''
     status:     int
+
+class DownloadLogs(BaseModel):
+    log:       str | None = None
+    config:    str | None = None

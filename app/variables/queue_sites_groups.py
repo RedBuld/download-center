@@ -8,9 +8,17 @@ class QueueSitesGroups():
 
     def __init__(self) -> None:
         self.map = {}
-    
+
+
+    # Get all data
+    async def GetAll( self ) -> Dict[ str, List[ str ] ]:
+        return self.map
+
+
+    # Get active sites
     async def GetActiveSites( self ) -> List[ str ]:
         return list( self.map.keys() )
+
 
     # Get all site groups
     async def GetSiteGroups(
@@ -21,6 +29,7 @@ class QueueSitesGroups():
         if ok:
             return self.map[ site_name ]
         return []
+
 
     # Get site group by site and selected format
     async def GetSiteGroup(
@@ -36,7 +45,8 @@ class QueueSitesGroups():
                 if format in QC.groups[ group_name ].formats:
                     return group_name
         return ""
-    
+
+
     # Add site to mapping
     async def SiteInit(
         self,
@@ -45,6 +55,7 @@ class QueueSitesGroups():
     ) -> bool:
         self.map[ site_name ] = site_groups
         return True
+
 
     # Remove site from mapping
     async def SiteDestroy(

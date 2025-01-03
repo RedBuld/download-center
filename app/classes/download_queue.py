@@ -27,14 +27,15 @@ class DownloadsQueue():
     sites_with_auth: List[ str ] = []
     groups:          List[ str ] = []
     site_to_groups:  variables.QueueSitesGroups
-    
-    # catchers
-    statuses:        Queue = None
-    results:         Queue = None
-    
+
+    # stats
     stats:           variables.QueueStats
     waiting:         variables.QueueWaiting
     running:         variables.QueueRunning
+
+    # catchers
+    statuses:        Queue
+    results:         Queue
 
     def __init__( self, **kwargs ) -> None:
         self.stop_queue      = False
@@ -44,11 +45,11 @@ class DownloadsQueue():
         self.sites_with_auth = []
         self.groups          = []
         self.site_to_groups  = variables.QueueSitesGroups()
-        self.statuses        = Queue()
-        self.results         = Queue()
         self.stats           = variables.QueueStats()
         self.waiting         = variables.QueueWaiting()
         self.running         = variables.QueueRunning()
+        self.statuses        = Queue()
+        self.results         = Queue()
 
     def __repr__( self ) -> str:
         return '<DownloadsQueue>'
@@ -121,6 +122,7 @@ class DownloadsQueue():
         self.statuses.close()
         self.results.close()
 
+
     async def Save( self ) -> None:
         await self.stats.Save()
 
@@ -184,19 +186,56 @@ class DownloadsQueue():
         return response
 
 
-    async def GetSitesWithAuth( self ) -> dto.SiteListResponse:
-        response = dto.SiteListResponse(
+    async def GetSitesWithAuth( self ) -> dto.SitesListResponse:
+        response = dto.SitesListResponse(
             sites = self.sites_with_auth
         )
         return response
 
 
-    async def GetSitesActive( self ) -> dto.SiteListResponse:
-        response = dto.SiteListResponse(
+    async def GetSitesActive( self ) -> dto.SitesListResponse:
+        response = dto.SitesListResponse(
             sites = self.sites_active
         )
         return response
+
+
+    async def GetSitesActiveByGroups( self ) -> dto.GroupedSitesResponse:
+        grouped: Dict[ str, List[ str ] ] = {}
+
+        for group in self.groups:
+            grouped[ group ] = []
+        
+        mapping = await self.site_to_groups.GetAll()
+        for site, groups in mapping.items():
+            for group in groups:
+                if group in grouped:
+                    grouped[ group ].append( site )
+
+        for group in grouped:
+            grouped[ group ].sort()
+
+        response = dto.GroupedSitesResponse(
+            groups = grouped
+        )
+        return response
     
+
+    async def GetLog(
+        self,
+        request: dto.DownloadLogRequest,
+    ) -> dto.DownloadLogs:
+        response = dto.DownloadLogs()
+
+        history = await DB.GetDownloadHistory( request.task_id )
+
+        if history:
+            response.log = history.dbg_log
+            response.config = history.dbg_config
+
+        return response
+
+
     #
 
     async def AddTask(
@@ -217,10 +256,9 @@ class DownloadsQueue():
         if not site_config:
             raise Exception( f'Не найдена конфигурация для сайта {site_name}' )
 
-        if site_config.force_proxy:
-            if not request.proxy and QC.proxies.Has():
-                request.proxy = await QC.proxies.GetInstance( site_name, site_config.excluded_proxy )
-            if not request.proxy:
+        if site_config.force_proxy and not request.proxy:
+            allowed_proxies = await QC.proxies.GetInstances( site_config.excluded_proxy )
+            if not request.proxy and len( allowed_proxies ) == 0:
                 raise Exception( 'Сайт недоступен без прокси' )
         
         can_be_added = await self.stats.GroupCanAdd( group_name )
@@ -429,24 +467,48 @@ class DownloadsQueue():
                             # go over waiting tasks
                             for task in tasks:
 
-                                if not await self.stats.GroupCanStart( group_name, task.request.proxy ):
-                                    continue
-
-                                # check site
                                 site_name = task.request.site
-                                if not await self.stats.SiteCanStart( site_name, task.request.proxy ):
-                                    # logger.info( f'DQ: site {site_name} can\'t run')
-                                    continue
 
-                                # check user
-                                user_id = task.request.user_id
-                                if not await self.stats.UserCanStart( user_id, site_name, group_name, task.request.proxy ):
-                                    # logger.info( f'DQ: user {user_id} can\'t run' )
-                                    continue
+                                if site_name in QC.sites:
+                                    
+                                    site_config = QC.sites[ site_name ]
+                                
+                                    allowed_proxies = []
 
-                                task_id = task.task_id
-                                if await self.taskRun( task ):
-                                    await self.waiting.RemoveTask( task_id )
+                                    if task.request.proxy:
+                                        allowed_proxies = [ task.request.proxy ]
+
+                                    else:
+                                        if site_config.use_proxy or site_config.force_proxy:
+                                            allowed_proxies = await QC.proxies.GetInstances( site_config.excluded_proxy )
+                                            if not site_config.force_proxy:
+                                                allowed_proxies.insert( 0, '' )
+                                        else:
+                                            allowed_proxies = ['']
+
+
+                                    selected_proxy = None
+                                    for proxy in allowed_proxies:
+                                        # check group
+                                        if not await self.stats.GroupCanStart( group_name, proxy ):
+                                            continue
+
+                                        # check site
+                                        if not await self.stats.SiteCanStart( site_name, proxy ):
+                                            continue
+
+                                        # check user
+                                        user_id = task.request.user_id
+                                        if not await self.stats.UserCanStart( user_id, site_name, group_name, proxy ):
+                                            continue
+                                        
+                                        selected_proxy = proxy
+
+                                    if selected_proxy != None:
+                                        task_id = task.task_id
+                                        if await self.taskRun( task, selected_proxy ):
+                                            await self.waiting.RemoveTask( task_id )
+
                     except:
                         traceback.print_exc()
             except:
@@ -462,7 +524,8 @@ class DownloadsQueue():
 
     async def taskRun(
         self,
-        waiting_task: QueueWaitingTask
+        waiting_task: QueueWaitingTask,
+        proxy: str = ''
     ) -> bool:
         logger.info('DQ: taskRun')
 
@@ -482,8 +545,8 @@ class DownloadsQueue():
                     page_delay   = QC.sites[ site_name ].page_delay or QC.groups[ group_name ].page_delay or 0
                     flaresolverr = ''
                     if QC.sites[ site_name ].use_flare:
-                        if waiting_task.request.proxy and QC.flaresolverrs.Has():
-                            flaresolverr = await QC.flaresolverrs.GetInstance( waiting_task.request.proxy )
+                        if proxy and QC.flaresolverrs.Has():
+                            flaresolverr = await QC.flaresolverrs.GetInstance( proxy )
                         else:
                             flaresolverr = GC.flaresolverr
 
@@ -497,6 +560,7 @@ class DownloadsQueue():
                         downloader   = downloader,
                         page_delay   = page_delay,
                         pattern      = pattern,
+                        proxy        = proxy,
                         flaresolverr = flaresolverr
                     )
 
@@ -513,7 +577,7 @@ class DownloadsQueue():
                     )
                     running_task.proc.start()
 
-                    await self.stats.AddRun( user_id, site_name, group_name, waiting_task.request.proxy )
+                    await self.stats.AddRun( user_id, site_name, group_name, proxy )
                     await self.stats.RemoveWaiting( user_id, site_name, group_name )
 
                     logger.info( f'DQ: started task {task_id}: ' + str(running_task.proc) )
@@ -546,23 +610,17 @@ class DownloadsQueue():
 
         task_id = result.task_id
 
-        try:
-            task = await self.running.GetTask( task_id )
-            
-            if task:
-                user_id = task.user_id
-                site_name = task.site
-                group_name = task.group
+        task = await self.running.GetTask( task_id )
+        
+        if task:
+            user_id = task.user_id
+            site_name = task.site
+            group_name = task.group
 
-                if await self.running.Exists( task_id ):
-                    await self.running.RemoveTask( task_id )
+            if await self.running.Exists( task_id ):
+                await self.running.RemoveTask( task_id )
 
-                await self.stats.RemoveRun( user_id, site_name, group_name, result.proxy )
-            else:
-                raise Exception("Task not found")
-
-        except:
-            traceback.print_exc()
+            await self.stats.RemoveRun( user_id, site_name, group_name, result.proxy )
 
         await DB.SaveDownloadResult( result )
         await DB.DeleteDownloadRequest( task_id )
@@ -643,7 +701,9 @@ class DownloadsQueue():
                     sites_active.append( site_name )
 
         self.sites_with_auth = sites_with_auth
+        self.sites_with_auth.sort()
         self.sites_active = sites_active
+        self.sites_active.sort()
 
         # clean abandoned stats groups
         for site_name in stats_active_sites:

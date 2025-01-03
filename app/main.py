@@ -119,6 +119,11 @@ async def sites_active():
     response = await DQ.GetSitesActive()
     return response
 
+@app.post('/sites/active_grouped')
+async def sites_active_grouped():
+    response = await DQ.GetSitesActiveByGroups()
+    return response
+
 #
 
 @app.post('/download/new')
@@ -162,6 +167,18 @@ async def download_clear( request: dto.DownloadClearRequest ):
 async def download_cancel( request: dto.DownloadCancelRequest ):
     try:
         resp = await asyncio.wait_for( DQ.CancelTask( request ), 10 )
+        return resp
+    except Exception as e:
+        return JSONResponse(
+            status_code = 500,
+            content =     "Произошла ошибка: "+str(e)
+        )
+
+
+@app.post('/download/get_log')
+async def download_cancel( request: dto.DownloadLogRequest ):
+    try:
+        resp = await asyncio.wait_for( DQ.GetLog( request ), 10 )
         return resp
     except Exception as e:
         return JSONResponse(

@@ -323,6 +323,31 @@ class DataBase(object):
             session.close()
 
 
+    async def GetDownloadHistory(
+        self,
+        task_id: int
+    ) -> models.DownloadHistory | None:
+        session = self._session()
+        try:
+            query = session.execute(
+                select(
+                    models.DownloadHistory
+                )
+                .where(
+                    models.DownloadHistory.task_id == task_id
+                )
+            )
+            result = query.scalar_one_or_none()
+            session.close()
+            return result
+        except OperationalError as e:
+            await asyncio.sleep( 1 )
+            traceback.print_exc()
+            return await self.GetDownloadHistory( task_id )
+        except Exception as e:
+            raise e
+        finally:
+            session.close()
     #
 
 
