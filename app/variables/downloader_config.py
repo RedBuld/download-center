@@ -125,6 +125,7 @@ class DownloaderContext():
             'temp_folder':  self.temp_folder,
             'arch_folder':  self.arch_folder,
             'compression':  self.compression,
+            'proxy':        self.proxy,
             'flaresolverr': self.flaresolverr,
             'pattern':      self.pattern,
             'page_delay':   self.page_delay,

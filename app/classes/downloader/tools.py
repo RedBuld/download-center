@@ -14,7 +14,7 @@ class DownloaderTools( DownloaderFrame ):
 
         self.SetStatus( variables.DownloaderStatus.ERROR )
 
-        message = f'Произошла ошибка\n{self.request.task_id}\n{self.request.url}\n\n'
+        message = f'Произошла ошибка\n{self.request.task_id}\n\n'
 
         extended_log = True
 

@@ -261,6 +261,9 @@ class DownloadsQueue():
             if not request.proxy and len( allowed_proxies ) == 0:
                 raise Exception( 'Сайт недоступен без прокси' )
         
+        if request.proxy == '':
+            request.proxy = None
+        
         can_be_added = await self.stats.GroupCanAdd( group_name )
         if not can_be_added and not is_restore:
             raise variables.QueueCheckException( 'Максимум ожидающих загрузок для группы' )
@@ -312,7 +315,7 @@ class DownloadsQueue():
 
             running_task = await self.running.RemoveTask( cancel_request.task_id )
             if running_task != None:
-                await self.stats.RemoveRun( running_task.user_id, running_task.site, running_task.group, running_task.request.proxy )
+                await self.stats.RemoveRun( running_task.user_id, running_task.site, running_task.group, running_task.proxy )
 
             await DB.DeleteDownloadRequest( cancel_request.task_id )
 
@@ -482,7 +485,7 @@ class DownloadsQueue():
                                         if site_config.use_proxy or site_config.force_proxy:
                                             allowed_proxies = await QC.proxies.GetInstances( site_config.excluded_proxy )
                                             if not site_config.force_proxy:
-                                                allowed_proxies.insert( 0, '' )
+                                                allowed_proxies.append( '' )
                                         else:
                                             allowed_proxies = ['']
 
@@ -503,6 +506,8 @@ class DownloadsQueue():
                                             continue
                                         
                                         selected_proxy = proxy
+                                        break
+
 
                                     if selected_proxy != None:
                                         task_id = task.task_id
@@ -537,7 +542,7 @@ class DownloadsQueue():
             group_name = await self.site_to_groups.GetSiteGroup( site_name, format )
 
             if group_name:
-                running_task = await self.running.AddTask( group_name, waiting_task.request )
+                running_task = await self.running.AddTask( group_name, proxy, waiting_task.request )
                 if running_task:
 
                     downloader   = DC.downloaders[ QC.sites[ site_name ].downloader or QC.groups[ group_name ].downloader ]
@@ -545,9 +550,9 @@ class DownloadsQueue():
                     page_delay   = QC.sites[ site_name ].page_delay or QC.groups[ group_name ].page_delay or 0
                     flaresolverr = ''
                     if QC.sites[ site_name ].use_flare:
-                        if proxy and QC.flaresolverrs.Has():
+                        if proxy != '' and QC.flaresolverrs.Has():
                             flaresolverr = await QC.flaresolverrs.GetInstance( proxy )
-                        else:
+                        if not flaresolverr:
                             flaresolverr = GC.flaresolverr
 
                     context = variables.DownloaderContext(
@@ -611,6 +616,7 @@ class DownloadsQueue():
         task_id = result.task_id
 
         task = await self.running.GetTask( task_id )
+        logger.info( str( task ) )
         
         if task:
             user_id = task.user_id

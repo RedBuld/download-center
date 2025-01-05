@@ -47,12 +47,14 @@ class DownloaderProcessCheckFiles( DownloaderFrame ):
                 for file in audio_folder_files:
                     file_path = os.path.join( audio_folder, file )
 
-                    file_name, extension = os.path.splitext( file )
-                    extension = extension[1:]
-                    
-                    if extension == self.request.format and not file_name.startswith( 'sample' ):
-                        self.temp.files.append( file_path )
-                        valid = True
+                    if os.path.isfile( file_path ):
+
+                        file_name, extension = os.path.splitext( file )
+                        extension = extension[1:]
+                        
+                        if extension == self.request.format and not file_name.startswith( 'sample' ):
+                            self.temp.files.append( file_path )
+                            valid = True
 
         return valid
 

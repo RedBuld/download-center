@@ -170,6 +170,7 @@ class ExportQueueRunningTask(BaseModel):
     task_id: int
     request: DownloadRequest
     status:  str
+    proxy:   str
 
     class Config:
         from_attributes = True
@@ -183,7 +184,7 @@ class DownloadResult(BaseModel):
     chat_id:    int | None = None
     message_id: int | None = None
     site:       str = ''
-    proxy:      str | None = ""
+    proxy:      str = ""
     url:        str | None = ''
     format:     str | None = ''
     start:      int | None = 0

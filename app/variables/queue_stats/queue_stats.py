@@ -30,10 +30,10 @@ class QueueStats( QueueStatsRoot ):
         }
 
         for site_name in self.sites.keys():
-            result[ 'sites' ][ site_name ] = await self.sites[ site_name ].GetRunning()
+            result[ 'sites' ][ site_name ] = self.sites[ site_name ].__json__
 
         for group_name in self.groups.keys():
-            result[ 'groups' ][ group_name ] = await self.groups[ group_name ].GetRunning()
+            result[ 'groups' ][ group_name ] = self.groups[ group_name ].__json__
         return result
 
 

@@ -48,6 +48,8 @@ DQ = DownloadsQueue()
 
 @asynccontextmanager
 async def lifespan( app: FastAPI ):
+    logging.getLogger("fastapi.access").handlers.clear()
+    logging.getLogger("fastapi.access").propagate = False
     logger.info('starting app')
     await read_config()
     await DB.Start()

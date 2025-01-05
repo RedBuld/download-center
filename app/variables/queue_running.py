@@ -73,11 +73,13 @@ class QueueRunning():
     async def AddTask(
         self,
         group_name: str,
+        proxy:      str,
         request:    dto.DownloadRequest
     ) -> QueueRunningTask | None:
         if request.task_id not in self.tasks:
             task = QueueRunningTask(
                 group   = group_name,
+                proxy   = proxy,
                 request = request
             )
             self.tasks[ task.task_id ] = task
@@ -122,6 +124,7 @@ class QueueRunningTask():
     site:    str = ""
     group:   str = ""
     url:     str = ""
+    proxy:   str = ""
     request: dto.DownloadRequest
     status:  str = ""
     proc:    Process
@@ -129,6 +132,7 @@ class QueueRunningTask():
     def __init__(
         self,
         group:   str,
+        proxy:   str,
         request: dto.DownloadRequest
     ) -> None:
         self.task_id = request.task_id
@@ -136,6 +140,7 @@ class QueueRunningTask():
         self.site    = request.site
         self.group   = group
         self.url     = request.url
+        self.proxy   = proxy
         self.request = request
         self.status  = "Ожидает запуска"
 
@@ -145,6 +150,7 @@ class QueueRunningTask():
             'user_id': self.user_id,
             'site':    self.site,
             'url':     self.url,
+            'proxy':   self.proxy,
             'group':   self.group,
             'status':  self.status,
         } )+'>'
