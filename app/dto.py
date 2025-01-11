@@ -22,6 +22,7 @@ class DownloadRequest(BaseModel):
     password:   str | None = ""
     images:     bool | None = False
     cover:      bool | None = False
+    thumb:      bool | None = True
     proxy:      str | None = ""
     hashtags:   str | None = ""
     filename:   str | None = None
@@ -45,6 +46,7 @@ class DownloadRequest(BaseModel):
             'password':   self.password,
             'images':     self.images,
             'cover':      self.cover,
+            'thumb':      self.thumb,
             'hashtags':   self.hashtags,
             'proxy':      self.proxy,
         }
@@ -191,7 +193,8 @@ class DownloadResult(BaseModel):
     end:        int | None = 0
     status:     int
     text:       str = ''
-    cover:      str | os.PathLike
+    cover:      str | os.PathLike = ''
+    thumb:      str | os.PathLike = ''
     files:      List[ str | os.PathLike ]
     orig_size:  int = 0
     oper_size:  int = 0

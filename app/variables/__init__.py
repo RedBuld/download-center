@@ -1,3 +1,4 @@
+import io
 from dataclasses import dataclass, field
 
 from .exceptions import *
@@ -31,6 +32,8 @@ class DownloadFolders:
 @dataclass(init=False, slots=True)
 class DownloadTempData:
     json:           str = ''
+    cover:          str = ''
+    thumb:          io.BytesIO | None = None
     files:          List[ str ] = field( default_factory=list )
     # src
     authors:        List[ str ] = field( default_factory=list )
@@ -53,6 +56,7 @@ class DownloadTempData:
 
     def __init__( self ) -> None:
         self.json           = ''
+        self.cover          = ''
         self.files          = []
         #
         self.authors        = []
@@ -97,6 +101,7 @@ class DownloadTempData:
 class DownloadResultData:
     caption:   str = ''
     cover:     str = ''
+    thumb:     str = ''
     files:     List[str] = field(default_factory=list)
     orig_size: int = 0
     oper_size: int = 0
@@ -104,6 +109,7 @@ class DownloadResultData:
     def __init__( self ) -> None:
         self.caption   = ''
         self.cover     = ''
+        self.thumb     = ''
         self.files     = []
         self.orig_size = 0
         self.oper_size = 0
@@ -112,6 +118,7 @@ class DownloadResultData:
         return {
             'caption':   self.caption,
             'cover':     self.cover,
+            'thumb':     self.thumb,
             'files':     self.files,
             'orig_size': self.orig_size,
             'oper_size': self.oper_size,

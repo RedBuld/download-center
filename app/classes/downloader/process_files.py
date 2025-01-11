@@ -1,8 +1,14 @@
 import os
+import math
 import asyncio
 import subprocess
+import logging
+import traceback
+from PIL import Image, ImageFilter
 
 from .frame import DownloaderFrame
+
+logger = logging.getLogger('downloader-process')
 
 class DownloaderProcessFiles( DownloaderFrame ):
 
@@ -68,7 +74,12 @@ class DownloaderProcessFiles( DownloaderFrame ):
                             else:
                                 raise ChildProcessError( 'Процесс архивации неожиданно завершился' )
 
+        use_thumb = self.request.thumb
+
+        logger.info( str( use_thumb ) )
+
         if os.path.exists( self.folders.archive ):
+            use_thumb = False
             archives = os.listdir( self.folders.archive )
 
             for archive in archives:
@@ -77,3 +88,41 @@ class DownloaderProcessFiles( DownloaderFrame ):
 
                 self.result.files.append( archive_path )
                 self.result.oper_size += os.path.getsize( archive_path )
+        
+        logger.info( str( use_thumb ) )
+
+        if self.temp.cover:
+            if self.request.cover:
+                self.result.cover = self.temp.cover
+            if use_thumb:
+                thumb_path = self.temp.cover.replace('cover','thumb')
+                logger.info( str( thumb_path ) )
+                thumb_size = (320, 320)
+                try:
+                    with Image.open( self.temp.cover ) as img_src:
+                        img_result = Image.new('RGB', thumb_size)
+                        img_src.thumbnail( thumb_size )
+                        img_bg = img_src.copy()
+
+                        left_x = int( ( 320 - img_src.width )/2 )
+                        top_y = int( ( 320 - img_src.height )/2 )
+                        
+                        prop_x = 320/img_src.width
+                        prop_y = 320/img_src.height
+                        resize_coef = max(prop_x,prop_y)
+                        resize_size = math.ceil( 320*resize_coef )
+                        
+                        img_bg = img_bg.resize( ( resize_size, resize_size ), Image.Resampling.LANCZOS )
+                        img_bg = img_bg.filter( ImageFilter.GaussianBlur( 20 ) )
+                        
+                        img_result.paste( img_bg, ( int(160 - img_bg.width/2), int(160 - img_bg.height/2) ) )
+                        img_result.paste( img_src, ( left_x, top_y ) )
+
+                        img_result.save( thumb_path, format="JPEG", optimize=True )
+                        self.result.thumb = thumb_path
+                except Exception as e:
+                    logger.info( 'failed create thumb' )
+                    traceback.print_exc()
+                    pass
+        logger.info( str( self.result ) )
+                

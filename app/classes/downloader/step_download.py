@@ -2,11 +2,14 @@ import os
 import shutil
 import asyncio
 import subprocess
-from typing import List
+import logging
+from typing import List, Dict, Any
 
 from app import variables
 
 from .frame import DownloaderFrame
+
+logger = logging.getLogger('downloader-process')
 
 class DownloaderStepDownload( DownloaderFrame ):
 
@@ -93,85 +96,89 @@ class DownloaderStepDownload( DownloaderFrame ):
                 raise FileExistsError( error )
             else:
                 raise FileExistsError( 'Ошибка загрузки файлов' )
-    
+
+
     async def prepareDownloadArgs( self ) -> List[ str ]:
-        args: List[str] = []
+        prepared_args: List[str] = []
 
-        args.append( '--save' )
-        args.append( f'{self.folders.result}' )
+        filtered_data: Dict[ str, Any ] = {}
+        raw_data: Dict[ str, Any ] = {
+            "result_folder": self.folders.result,
+            "temp_folder": self.folders.temp,
+            "url": self.request.url,
+            "format": self.request.format,
+            "start": self.request.start if self.request.start and self.request.start != 0 else None,
+            "end": self.request.end if self.request.end and self.request.end != 0 else None,
+            "login": self.request.login if self.request.login and self.request.password else None,
+            "password": self.request.password if self.request.password and self.request.login else None,
+            "noimages": not (self.request.images),
+            "proxy": self.context.proxy,
+            "flaresolverr": self.context.flaresolverr,
+            "page_delay": self.context.page_delay,
+        }
 
 
-        args.append( '--temp' )
-        args.append( f'{self.folders.temp}' )
+        source_args = self.context.downloader.args
+        format_args = self.context.downloader.format_args.get( self.request.format, {} )
 
 
-        args.append( '--timeout' )
-        args.append( '600' )
-
-
-        if self.request.url:
-            args.append( '--url' )
-            args.append( f'{self.request.url}' )
-
-
-        if self.request.format:
-            args.append( '--format' )
-            if self.request.format == 'mp3':
-                args.append( 'json_lite' )
-                args.append( '--additional' )
-                args.append( '--additional-types' )
-                args.append( 'audio' )
-            elif self.request.format == 'pdf':
-                args.append( 'json_lite' )
-                args.append( '--additional' )
-                args.append( '--additional-types' )
-                args.append( 'books' )
+        for key, config in format_args.items():
+            if key in source_args:
+                if config.tag != None:
+                    source_args[ key ].tag = config.tag
+                if config.value != None:
+                    source_args[ key ].value = config.value
+                if config.default_value != None:
+                    source_args[ key ].default_value = config.default_value
+                if config.conditions:
+                    source_args[ key ].conditions = config.conditions
             else:
-                args.append( f'{self.request.format},json_lite' )
+                source_args[ key ] = config
 
 
-        if self.request.cover:
-            args.append( '--cover' )
+        for key, config in source_args.items():
+            if config.value or config.conditions:
+                valid, value = self.validateArg( key, config, raw_data )
+                if valid:
+                    filtered_data[ key ] = value
+            else:
+                filtered_data[ key ] = True
 
 
-        if self.request.images == False or self.request.format == 'mp3':
-            args.append( '--no-image' )
+        for key, value in filtered_data.items():
+            config = source_args[ key ]
+            prepared_args.append( config.tag )
+            if config.value:
+                mask: str = str( config.value )
+                prepared_args.append( mask.replace( '{'+key+'}', str( value ) ) )
+
+        logger.info( str( prepared_args ) )
+
+        return prepared_args
 
 
-        if self.request.start:
-            args.append( '--start' )
-            args.append( f'{self.request.start}' )
+    def validateArg( self, key: str, config: variables.DownloaderConfigArg, data: Dict[ str, Any ] ) -> tuple[ bool, Any ]:
 
+        value = data.get( key, None )
 
-        if self.request.end:
-            args.append( '--end' )
-            args.append( f'{self.request.end}' )
+        if not value:
+            if config.default_value:
+                value = config.default_value
 
-
-        if self.request.login and self.request.password:
-            args.append('--login')
-            args.append(f'{self.request.login}')
-            args.append('--password')
-            args.append(f'{self.request.password}')
-
-
-        if self.context.pattern:
-            args.append('--book-name-pattern')
-            args.append(self.context.pattern)
-
-
-        if self.context.proxy:
-            args.append( '--proxy' )
-            args.append( f'{self.context.proxy}' )
-
-
-        if self.context.flaresolverr:
-            args.append('--flare')
-            args.append(f'{self.context.flaresolverr}')
-
-
-        if self.context.page_delay:
-            args.append( '--delay' )
-            args.append( f'{self.context.page_delay}' )
+        valid = True
+        for condition in config.conditions:
+            ct = type( condition )
+            if ct == str and condition == 'nonempty':
+                if value == None or value == '':
+                    valid = False
+            elif ct == str and condition == 'nonzero':
+                if value == 0:
+                    valid = False
+            elif ct == str and condition == 'nonnull':
+                if value == None:
+                    valid = False
+            elif ct == bool:
+                if value != condition:
+                    valid = False
         
-        return args
+        return valid, value

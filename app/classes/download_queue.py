@@ -378,8 +378,8 @@ class DownloadsQueue():
             if len( downloader.clean ) > 0:
                 base_path = os.path.join( DC.exec_folder, downloader.folder )
                 for clean_folder in downloader.clean:
-                    folder_path = os.path.join( base_path, clean_folder['folder'] )
-                    del_time = datetime.now() - timedelta( seconds=clean_folder['time'] )
+                    folder_path = os.path.join( base_path, clean_folder.folder )
+                    del_time = datetime.now() - timedelta( seconds=clean_folder.time )
                     del_time = del_time.timestamp()
 
                     if os.path.exists( folder_path ):

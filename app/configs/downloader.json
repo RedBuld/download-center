@@ -26,7 +26,100 @@
                     "folder": "LitresCache",
                     "time": 3000
                 }
-            ]
+            ],
+            "args": {
+                "result_folder": {
+                    "tag": "--save",
+                    "value": "{result_folder}"
+                },
+                "temp_folder": {
+                    "tag": "--temp",
+                    "value": "{temp_folder}"
+                },
+                "timeout": {
+                    "tag": "--timeout",
+                    "value": "{timeout}",
+                    "default_value": "600"
+                },
+                "url": {
+                    "tag": "--url",
+                    "value": "{url}"
+                },
+                "format": {
+                    "tag": "--format",
+                    "value": "{format},json_lite"
+                },
+                "cover": {
+                    "tag": "--cover"
+                },
+                "start": {
+                    "tag": "--start",
+                    "value": "{start}",
+                    "conditions": ["nonzero","nonempty"]
+                },
+                "end": {
+                    "tag": "--end",
+                    "value": "{end}",
+                    "conditions": ["nonzero","nonempty"]
+                },
+                "login": {
+                    "tag": "--login",
+                    "value": "{login}",
+                    "conditions": ["nonempty"]
+                },
+                "password": {
+                    "tag": "--password",
+                    "value": "{password}",
+                    "conditions": ["nonempty"]
+                },
+                "noimages": {
+                    "tag": "--no-image",
+                    "conditions": [true]
+                },
+                "proxy": {
+                    "tag": "--proxy",
+                    "value": "{proxy}",
+                    "conditions": ["nonempty"]
+                },
+                "flaresolverr": {
+                    "tag": "--flare",
+                    "value": "{flaresolverr}",
+                    "conditions": ["nonempty"]
+                },
+                "page_delay": {
+                    "tag": "--delay",
+                    "value": "{page_delay}",
+                    "conditions": ["nonzero","nonempty"]
+                }
+            },
+            "format_args": {
+                "mp3": {
+                    "format": {
+                        "value": "json_lite"
+                    },
+                    "additional": {
+                        "tag": "--additional"
+                    },
+                    "additional-types": {
+                        "tag": "--additional-types",
+                        "value": "{additional-types}",
+                        "default_value": "audio"
+                    }
+                },
+                "pdf": {
+                    "format": {
+                        "value": "json_lite"
+                    },
+                    "additional": {
+                        "tag": "--additional"
+                    },
+                    "additional-types": {
+                        "tag": "--additional-types",
+                        "value": "{additional-types}",
+                        "default_value": "books"
+                    }
+                }
+            }
         }
     },
     "file_limit": 1549000000

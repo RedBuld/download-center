@@ -68,6 +68,7 @@ class DownloaderInterconnect( DownloaderFrame ):
             status     = self.status,
             text       = self.result.caption,
             cover      = self.result.cover,
+            thumb      = self.result.thumb,
             files      = self.result.files,
             orig_size  = self.result.orig_size,
             oper_size  = self.result.oper_size,

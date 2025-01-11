@@ -2,6 +2,7 @@ from __future__ import annotations
 import os
 import ujson
 from dataclasses import dataclass, field
+from dacite import from_dict, Config
 from typing import List, Dict, Any
 
 class DownloaderConfig():
@@ -76,25 +77,49 @@ class DownloaderConfig():
 
         downloaders = {}
         for name, data in _downloaders.items():
-            downloader = DownloaderConfigExec( **data )
-            downloaders[ name ] = downloader
+            downloaders[ name ] = from_dict( data_class=DownloaderConfigExec, data=data, config=Config( check_types=False ) ) 
 
 
         self.downloaders = downloaders
 
 
-@dataclass
+@dataclass()
 class DownloaderConfigExec():
-    folder: str
-    exec:   str
-    clean:  List[ DownloaderConfigClean ] = field( default_factory=list )
+    folder:      str
+    exec:        str
+    clean:       List[ DownloaderConfigClean ] = field( default_factory=list )
+    args:        Dict[ str, DownloaderConfigArg ] = field( default_factory=dict )
+    format_args: Dict[ str, Dict[ str, DownloaderConfigFArg ] ] = field( default_factory=dict )
 
+    # def __init__(
+    #     self,
+    #     folder: str = "",
+    #     exec: str = "",
+    #     clean: = ,
+    #     args: = ,
+    #     format_args: = ,
+    # ) -> None:
     def __repr__( self ) -> str:
         return str( {
             'folder': self.folder,
             'exec':   self.exec,
             "clean":  self.clean,
+            "args":  self.args,
+            "format_args":  self.format_args,
         } )
+
+
+@dataclass
+class DownloaderConfigArg():
+    tag: str
+    value: Any | None = None
+    default_value: Any | None = None
+    conditions: List[ Any ] = field( default_factory=list )
+
+
+@dataclass
+class DownloaderConfigFArg(DownloaderConfigArg):
+    tag: str | None = None
 
 
 @dataclass

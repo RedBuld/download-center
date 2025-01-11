@@ -43,6 +43,7 @@ class DownloadRequest(Base):
     password: Mapped[str] =     mapped_column('password', Text, default="")
     images: Mapped[bool] =      mapped_column('images', Boolean, default=True)
     cover: Mapped[bool] =       mapped_column('cover', Boolean, default=False)
+    thumb: Mapped[bool] =       mapped_column('thumb', Boolean, default=False)
     hashtags: Mapped[str] =     mapped_column('hashtags', String(5), default="no")
     filename: Mapped[str] =     mapped_column('filename', Text, nullable=True)
     proxy: Mapped[str | None] = mapped_column('proxy', Text, nullable=True)
@@ -63,6 +64,7 @@ class DownloadRequest(Base):
             'password':   self.password,
             'images':     self.images,
             'cover':      self.cover,
+            'thumb':      self.thumb,
             'hashtags':   self.hashtags,
             'proxy':      self.proxy,
         }
@@ -88,6 +90,7 @@ class DownloadRequest(Base):
         request.password   = dto.password
         request.images     = dto.images
         request.cover      = dto.cover
+        request.thumb      = dto.thumb
         request.hashtags   = dto.hashtags
         request.filename   = dto.filename
         request.proxy      = dto.proxy
@@ -111,6 +114,7 @@ class DownloadResult(Base):
     site: Mapped[str] =       mapped_column('site', String(100), default="")
     text: Mapped[str] =       mapped_column('text', Text, default="")
     cover: Mapped[str] =      mapped_column('cover', Text, default="")
+    thumb: Mapped[str] =      mapped_column('thumb', Text, default="")
     _files: Mapped[str] =     mapped_column('files', Text, default="")
     orig_size: Mapped[int] =  mapped_column('orig_size', BigInteger, default=0)
     oper_size: Mapped[int] =  mapped_column('oper_size', BigInteger, default=0)
@@ -139,6 +143,7 @@ class DownloadResult(Base):
         self.site       = dto.site
         self.text       = dto.text
         self.cover      = dto.cover
+        self.thumb      = dto.thumb
         self.files      = dto.files
         self.orig_size  = dto.orig_size
         self.oper_size  = dto.oper_size
