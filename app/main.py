@@ -1,8 +1,6 @@
 import traceback
 import asyncio
 import logging
-import aiohttp
-import ujson
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -48,12 +46,11 @@ DQ = DownloadsQueue()
 
 @asynccontextmanager
 async def lifespan( app: FastAPI ):
-    logging.getLogger("fastapi.access").handlers.clear()
-    logging.getLogger("fastapi.access").propagate = False
     logger.info('starting app')
     await read_config()
     await DB.Start()
     await DQ.Start()
+    logger.info('started app')
     yield
     logger.info('stopping app')
     await DQ.Save()
@@ -62,6 +59,7 @@ async def lifespan( app: FastAPI ):
     await DB.Stop()
     if RD is not None:
         await RD.close()
+    logger.info('stopped app')
 
 app = FastAPI(
     docs_url=None,

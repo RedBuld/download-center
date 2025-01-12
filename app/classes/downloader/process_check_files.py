@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from .frame import DownloaderFrame
 
@@ -22,10 +23,13 @@ class DownloaderProcessCheckFiles( DownloaderFrame ):
             has_default_files = await self.checkDefaultFiles( file_path, file )
 
             if not any( [ has_pdf_files, has_audio_files, has_default_files ] ):
-                trash.append( file_path )
+                raise FileExistsError( 'Ошибка загрузки файлов' )
 
         for file in trash:
-            os.remove( file )
+            if os.path.isdir( file ):
+                shutil.rmtree( file )
+            else:
+                os.remove( file )
 
 
     async def checkPDFFiles( self, file_path: str, file: str ) -> bool:
@@ -47,7 +51,7 @@ class DownloaderProcessCheckFiles( DownloaderFrame ):
                 for file in audio_folder_files:
                     file_path = os.path.join( audio_folder, file )
 
-                    if os.path.isfile( file_path ):
+                    if os.path.isfile( file_path ) and not os.path.isdir( file_path ):
 
                         file_name, extension = os.path.splitext( file )
                         extension = extension[1:]
@@ -63,7 +67,7 @@ class DownloaderProcessCheckFiles( DownloaderFrame ):
 
         valid = False
 
-        if os.path.isfile( file_path ):
+        if os.path.isfile( file_path ) and not os.path.isdir( file_path ):
 
             file_name, extension = os.path.splitext( file )
             extension = extension[1:]

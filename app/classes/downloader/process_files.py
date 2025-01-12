@@ -96,27 +96,47 @@ class DownloaderProcessFiles( DownloaderFrame ):
                 self.result.cover = self.temp.cover
             if use_thumb:
                 thumb_path = self.temp.cover.replace('cover','thumb')
-                logger.info( str( thumb_path ) )
-                thumb_size = (320, 320)
+                thumb_dimension = 320
                 try:
                     with Image.open( self.temp.cover ) as img_src:
-                        img_result = Image.new('RGB', thumb_size)
-                        img_src.thumbnail( thumb_size )
+                        # create result image
+                        img_result = Image.new('RGB', ( thumb_dimension, thumb_dimension ) )
+
+                        # resize original image
+                        img_src.thumbnail( ( thumb_dimension, thumb_dimension ) )
+
+                        # copy thumb to bg layer
                         img_bg = img_src.copy()
 
-                        left_x = int( ( 320 - img_src.width )/2 )
-                        top_y = int( ( 320 - img_src.height )/2 )
+                        # find maximal resize scale coefficient
+                        resize_coef = max( thumb_dimension / img_src.width, thumb_dimension / img_src.height )
                         
-                        prop_x = 320/img_src.width
-                        prop_y = 320/img_src.height
-                        resize_coef = max(prop_x,prop_y)
-                        resize_size = math.ceil( 320*resize_coef )
+                        # calculate resize dimension
+                        resize_dimension = math.ceil( thumb_dimension * resize_coef )
                         
-                        img_bg = img_bg.resize( ( resize_size, resize_size ), Image.Resampling.LANCZOS )
+                        # upscale to fill
+                        img_bg = img_bg.resize( ( resize_dimension, resize_dimension ), Image.Resampling.LANCZOS )
+
+                        # blur bg layer
                         img_bg = img_bg.filter( ImageFilter.GaussianBlur( 20 ) )
                         
-                        img_result.paste( img_bg, ( int(160 - img_bg.width/2), int(160 - img_bg.height/2) ) )
-                        img_result.paste( img_src, ( left_x, top_y ) )
+                        # paste bg to result image
+                        img_result.paste(
+                            img_bg,
+                            (
+                                ( thumb_dimension - img_bg.width ) // 2,
+                                ( thumb_dimension - img_bg.height ) // 2
+                            )
+                        )
+
+                        # paste thumb to result image
+                        img_result.paste(
+                            img_src,
+                            (
+                                ( thumb_dimension - img_src.width ) // 2,
+                                ( thumb_dimension - img_src.height ) // 2
+                            )
+                        )
 
                         img_result.save( thumb_path, format="JPEG", optimize=True )
                         self.result.thumb = thumb_path
